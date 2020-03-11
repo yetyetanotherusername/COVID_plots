@@ -51,6 +51,7 @@ class CovidPlot(object):
                 slice(None), slice(None), slice(None))]
         confirmed.plot(logy=True)
         plt.grid()
+        plt.savefig('simple_plot.pdf')
 
     def run(self):
         self.simple_plot()
