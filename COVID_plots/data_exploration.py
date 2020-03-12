@@ -48,13 +48,31 @@ class CovidPlot(object):
     def simple_plot(self):
         confirmed = self.confirmed_df.loc[
             :, (['Germany', 'Austria', 'Italy'],
-                slice(None), slice(None), slice(None))]
+                slice(None), slice(None), slice(None))
+        ]
         confirmed.plot(logy=True)
         plt.grid()
         plt.savefig('simple_plot.pdf')
 
+    def totals_plot(self):
+        total_df = pd.DataFrame()
+        total_df['confirmed'] = self.confirmed_df.sum(axis=1)
+        total_df['deaths'] = self.deaths_df.sum(axis=1)
+        total_df['recovered'] = self.recovered_df.sum(axis=1)
+
+        total_df['currently_sick'] = (
+            total_df.confirmed - total_df.deaths - total_df.recovered
+        )
+
+        total_df = total_df.drop('confirmed', axis=1)
+
+        total_df.plot.area()
+        plt.grid()
+        plt.savefig('totals.pdf')
+
     def run(self):
-        self.simple_plot()
+        # self.simple_plot()
+        self.totals_plot()
         plt.show()
 
 
