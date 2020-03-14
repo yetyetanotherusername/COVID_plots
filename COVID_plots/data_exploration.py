@@ -76,11 +76,11 @@ class CovidPlot(object):
 
         total_df = total_df.drop('confirmed', axis=1)
 
-        total_df.plot.area()
+        total_df.plot.area(alpha=0.6)
         plt.grid()
         plt.title('Total COVID-19 numbers' + self.data_disclaimer)
         plt.ylabel('Number of individuals affected (stacked)')
-        plt.savefig('figures/totals.png', dpi=300)
+        plt.savefig(os.path.join('figures', 'totals.png'), dpi=300)
 
     def rate_plot(self):
         total_df = self.calc_totals()
@@ -95,7 +95,7 @@ class CovidPlot(object):
         plt.grid()
         plt.title('Global daily COVID-19 cases' + self.data_disclaimer)
         plt.ylabel('Number of newly affected individuals per day')
-        plt.savefig('figures/rates.png', dpi=300)
+        plt.savefig(os.path.join('figures', 'rates.png'), dpi=300)
 
     def map_plot(self):
 
@@ -128,7 +128,10 @@ class CovidPlot(object):
             plt.title('COVID-19 development' + self.data_disclaimer)
             plt.text(0, -50, cdf.iloc[idx, :].name.date())
             lex_sort_num = str(idx) if len(str(idx)) > 1 else '0' + str(idx)
-            plt.savefig(f'figures/animated_map{lex_sort_num}.svg')
+            plt.savefig(
+                os.path.join(
+                    'figures', f'animated_map{lex_sort_num}.png'), dpi=300)
+
             plt.close()
 
         for iidx in range(0, cdf.shape[0]):
