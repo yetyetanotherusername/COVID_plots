@@ -46,6 +46,8 @@ class CovidPlot(object):
             ['Country/Region', 'Province/State', 'Lat', 'Long']).sort_index().T
         self.recovered_df.index = pd.to_datetime(self.recovered_df.index)
 
+        self.data_disclaimer = ' (data source: Johns Hopkins CSSE)'
+
     def calc_totals(self):
         total_df = pd.DataFrame()
         total_df['confirmed'] = self.confirmed_df.sum(axis=1)
@@ -74,7 +76,7 @@ class CovidPlot(object):
 
         total_df.plot.area()
         plt.grid()
-        plt.title('Total COVID-19 numbers')
+        plt.title('Total COVID-19 numbers' + self.data_disclaimer)
         plt.ylabel('Number of individuals affected (stacked)')
         plt.savefig('figures/totals.png')
 
@@ -89,8 +91,8 @@ class CovidPlot(object):
 
         plot_df.plot.area(stacked=False)
         plt.grid()
-        plt.title('Global daily COVID-19 cases')
-        plt.ylabel('Number of newly affected individuals by day')
+        plt.title('Global daily COVID-19 cases' + self.data_disclaimer)
+        plt.ylabel('Number of newly affected individuals per day')
         plt.savefig('figures/rates.png')
 
     def map_plot(self):
