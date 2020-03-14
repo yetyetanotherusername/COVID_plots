@@ -2,6 +2,7 @@ import os
 import pandas as pd
 import matplotlib.pyplot as plt
 from cycler import cycler
+import geopandas as gp
 
 plt.style.use('dark_background')
 plt.rcParams['axes.prop_cycle'] = cycler(
@@ -45,20 +46,25 @@ class CovidPlot(object):
             ['Country/Region', 'Province/State', 'Lat', 'Long']).sort_index().T
         self.recovered_df.index = pd.to_datetime(self.recovered_df.index)
 
+    def calc_totals(self):
+        total_df = pd.DataFrame()
+        total_df['confirmed'] = self.confirmed_df.sum(axis=1)
+        total_df['deaths'] = self.deaths_df.sum(axis=1)
+        total_df['recovered'] = self.recovered_df.sum(axis=1)
+
+        return total_df
+
     def simple_plot(self):
         confirmed = self.confirmed_df.loc[
             :, (['Germany', 'Austria', 'Italy'],
                 slice(None), slice(None), slice(None))
         ]
-        confirmed.plot(logy=True)
+        confirmed.plot()
         plt.grid()
-        plt.savefig('simple_plot.pdf')
+        plt.savefig('figures/simple_plot.')
 
     def totals_plot(self):
-        total_df = pd.DataFrame()
-        total_df['confirmed'] = self.confirmed_df.sum(axis=1)
-        total_df['deaths'] = self.deaths_df.sum(axis=1)
-        total_df['recovered'] = self.recovered_df.sum(axis=1)
+        total_df = self.calc_totals()
 
         total_df['currently_sick'] = (
             total_df.confirmed - total_df.deaths - total_df.recovered
@@ -68,11 +74,34 @@ class CovidPlot(object):
 
         total_df.plot.area()
         plt.grid()
-        plt.savefig('totals.pdf')
+        plt.title('Total COVID-19 numbers')
+        plt.ylabel('Number of individuals affected (stacked)')
+        plt.savefig('figures/totals.png')
+
+    def rate_plot(self):
+        total_df = self.calc_totals()
+
+        plot_df = pd.DataFrame()
+
+        plot_df['confirmed'] = total_df.confirmed.diff()
+        plot_df['deaths'] = total_df.deaths.diff()
+        plot_df['recovered'] = total_df.recovered.diff()
+
+        plot_df.plot.area(stacked=False)
+        plt.grid()
+        plt.title('Global daily COVID-19 cases')
+        plt.ylabel('Number of newly affected individuals by day')
+        plt.savefig('figures/rates.png')
+
+    def map_plot(self):
+        world = gp.read_file(gp.datasets.get_path('naturalearth_lowres'))
+        world.plot()
 
     def run(self):
         # self.simple_plot()
         self.totals_plot()
+        self.rate_plot()
+        # self.map_plot()
         plt.show()
 
 
