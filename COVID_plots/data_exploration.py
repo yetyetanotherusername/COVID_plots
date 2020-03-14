@@ -3,11 +3,13 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from cycler import cycler
 import geopandas as gp
+import shapely
 
 plt.style.use('dark_background')
 plt.rcParams['axes.prop_cycle'] = cycler(
     color=[u'#1f77b4', u'#ff7f0e', u'#2ca02c', u'#d62728', u'#9467bd',
            u'#8c564b', u'#e377c2', u'#7f7f7f', u'#bcbd22', u'#17becf'])
+plt.rcParams['figure.figsize'] = (10.0, 5.0)
 
 
 class CovidPlot(object):
@@ -63,7 +65,7 @@ class CovidPlot(object):
         ]
         confirmed.plot()
         plt.grid()
-        plt.savefig('figures/simple_plot.')
+        plt.savefig('figures/simple_plot.', dpi=300)
 
     def totals_plot(self):
         total_df = self.calc_totals()
@@ -78,7 +80,7 @@ class CovidPlot(object):
         plt.grid()
         plt.title('Total COVID-19 numbers' + self.data_disclaimer)
         plt.ylabel('Number of individuals affected (stacked)')
-        plt.savefig('figures/totals.png')
+        plt.savefig('figures/totals.png', dpi=300)
 
     def rate_plot(self):
         total_df = self.calc_totals()
@@ -93,18 +95,51 @@ class CovidPlot(object):
         plt.grid()
         plt.title('Global daily COVID-19 cases' + self.data_disclaimer)
         plt.ylabel('Number of newly affected individuals per day')
-        plt.savefig('figures/rates.png')
+        plt.savefig('figures/rates.png', dpi=300)
 
     def map_plot(self):
+
         world = gp.read_file(gp.datasets.get_path('naturalearth_lowres'))
-        world.plot()
+
+        cdf = self.confirmed_df - self.deaths_df - self.recovered_df
+
+        def animate(idx):
+            now = cdf.iloc[idx, :].T.to_frame()
+            now.columns = ['confirmed']
+            now = now.reset_index()
+
+            geometry = [
+                shapely.geometry.Point(xy) for xy in zip(now.Long, now.Lat)
+            ]
+
+            now = now.drop(['Lat', 'Long'], axis=1)
+            crs = {'init': 'epsg:4326'}
+            pgdf = gp.GeoDataFrame(
+                now, crs=crs, geometry=geometry)
+
+            base = world.plot()
+
+            pgdf.plot(
+                ax=base, color='r',
+                markersize=pgdf['confirmed'] / 20,
+                alpha=0.3
+            )
+
+            plt.title('COVID-19 development' + self.data_disclaimer)
+            plt.text(0, -50, cdf.iloc[idx, :].name.date())
+            lex_sort_num = str(idx) if len(str(idx)) > 1 else '0' + str(idx)
+            plt.savefig(f'figures/animated_map{lex_sort_num}.svg')
+            plt.close()
+
+        for iidx in range(0, cdf.shape[0]):
+            animate(iidx)
 
     def run(self):
-        # self.simple_plot()
+        self.simple_plot()
         self.totals_plot()
         self.rate_plot()
         # self.map_plot()
-        plt.show()
+        # plt.show()
 
 
 def main():
