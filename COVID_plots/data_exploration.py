@@ -50,25 +50,56 @@ class CovidPlot(object):
 
         self.data_disclaimer = ' (data source: Johns Hopkins CSSE)'
 
-    def calc_totals(self):
+    def calc_totals(self, countries=None):
         total_df = pd.DataFrame()
-        total_df['confirmed'] = self.confirmed_df.sum(axis=1)
-        total_df['deaths'] = self.deaths_df.sum(axis=1)
-        total_df['recovered'] = self.recovered_df.sum(axis=1)
+
+        if countries is not None and type(countries) == list:
+            confirmed_df = self.confirmed_df.loc[
+                :, (countries, slice(None), slice(None), slice(None))
+            ]
+
+            deaths_df = self.deaths_df.loc[
+                :, (countries, slice(None), slice(None), slice(None))
+            ]
+
+            recovered_df = self.recovered_df.loc[
+                :, (countries, slice(None), slice(None), slice(None))
+            ]
+
+        elif countries is not None:
+            raise TypeError('countries argument accepts type list, '
+                            f'got {type(countries)} instead')
+
+        total_df['confirmed'] = confirmed_df.sum(axis=1)
+        total_df['deaths'] = deaths_df.sum(axis=1)
+        total_df['recovered'] = recovered_df.sum(axis=1)
 
         return total_df
 
-    def simple_plot(self):
+    def countries_to_string(self, countries):
+        if countries is None:
+            c_string = 'Global'
+        else:
+            c_string = "".join(countries)
+
+        return c_string
+
+    def simple_plot(self, countries=['Germany', 'Austria', 'Italy']):
+        if type(countries) != list:
+            raise TypeError('countries argument accepts type list, '
+                            f'got {type(countries)} instead')
+
         confirmed = self.confirmed_df.loc[
-            :, (['Germany', 'Austria', 'Italy'],
+            :, (countries,
                 slice(None), slice(None), slice(None))
         ]
+
         confirmed.plot()
         plt.grid()
         plt.savefig('figures/simple_plot.', dpi=300)
 
-    def totals_plot(self):
-        total_df = self.calc_totals()
+    def totals_plot(self, countries=None):
+        total_df = self.calc_totals(countries)
 
         total_df['currently_sick'] = (
             total_df.confirmed - total_df.deaths - total_df.recovered
@@ -78,12 +109,13 @@ class CovidPlot(object):
 
         total_df.plot.area(alpha=0.6)
         plt.grid()
-        plt.title('Total COVID-19 numbers' + self.data_disclaimer)
+        c_string = self.countries_to_string(countries)
+        plt.title(f'Total COVID-19 numbers, {c_string}' + self.data_disclaimer)
         plt.ylabel('Number of individuals affected (stacked)')
         plt.savefig(os.path.join('figures', 'totals.png'), dpi=300)
 
-    def rate_plot(self):
-        total_df = self.calc_totals()
+    def rate_plot(self, countries=None):
+        total_df = self.calc_totals(countries)
 
         plot_df = pd.DataFrame()
 
@@ -93,7 +125,8 @@ class CovidPlot(object):
 
         plot_df.plot.area(stacked=False)
         plt.grid()
-        plt.title('Global daily COVID-19 cases' + self.data_disclaimer)
+        c_string = self.countries_to_string(countries)
+        plt.title(f'{c_string} daily COVID-19 cases' + self.data_disclaimer)
         plt.ylabel('Number of newly affected individuals per day')
         plt.savefig(os.path.join('figures', 'rates.png'), dpi=300)
 
@@ -127,7 +160,14 @@ class CovidPlot(object):
 
             plt.title('COVID-19 development' + self.data_disclaimer)
             plt.text(0, -50, cdf.iloc[idx, :].name.date())
-            lex_sort_num = str(idx) if len(str(idx)) > 1 else '0' + str(idx)
+
+            if len(str(idx)) > 2:
+                lex_sort_num = str(idx)
+            elif len(str(idx)) > 1:
+                lex_sort_num = f'0{str(idx)}'
+            else:
+                lex_sort_num = f'00{str(idx)}'
+
             plt.savefig(
                 os.path.join(
                     'figures', f'animated_map{lex_sort_num}.png'), dpi=300)
