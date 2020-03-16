@@ -70,6 +70,11 @@ class CovidPlot(object):
             raise TypeError('countries argument accepts type list, '
                             f'got {type(countries)} instead')
 
+        else:
+            confirmed_df = self.confirmed_df
+            deaths_df = self.deaths_df
+            recovered_df = self.recovered_df
+
         total_df['confirmed'] = confirmed_df.sum(axis=1)
         total_df['deaths'] = deaths_df.sum(axis=1)
         total_df['recovered'] = recovered_df.sum(axis=1)
