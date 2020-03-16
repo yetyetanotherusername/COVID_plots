@@ -101,7 +101,39 @@ class CovidPlot(object):
 
         confirmed.plot()
         plt.grid()
-        plt.savefig('figures/simple_plot.', dpi=300)
+        plt.savefig(os.path.join('figures', 'simple_plot.png'), dpi=300)
+
+    def not_so_simple_plot(self, countries=['Germany', 'Austria', 'Italy']):
+        if type(countries) != list:
+            raise TypeError('countries argument accepts type list, '
+                            f'got {type(countries)} instead')
+
+        confirmed = self.confirmed_df.loc[
+            :, (countries,
+                slice(None), slice(None), slice(None))
+        ]
+
+        confirmed.columns = (
+            confirmed.columns.droplevel(3).droplevel(2).droplevel(1)
+        )
+
+        concat_list = []
+        for label in confirmed.columns:
+            series = confirmed[label]
+            series = series[series >= 100]
+            series = series.reset_index(drop=True)
+            concat_list.append(series)
+
+        transformed = pd.concat(concat_list, axis=1)
+
+        print(transformed)
+
+        transformed.plot(logy=True)
+        plt.grid()
+        plt.title('COVID-19 cases per country' + self.data_disclaimer)
+        plt.xlabel('Days since more than 100 cases')
+        plt.ylabel('Accumulated positive cases')
+        plt.savefig(os.path.join('figures', 'shifted.png'), dpi=300)
 
     def totals_plot(self, countries=None):
         total_df = self.calc_totals(countries)
@@ -183,7 +215,8 @@ class CovidPlot(object):
             animate(iidx)
 
     def run(self):
-        self.simple_plot()
+        # self.simple_plot()
+        self.not_so_simple_plot()
         self.totals_plot()
         self.rate_plot()
         # self.map_plot()
