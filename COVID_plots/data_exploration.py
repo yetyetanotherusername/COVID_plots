@@ -118,17 +118,36 @@ class CovidPlot(object):
         )
 
         concat_list = []
-        for label in confirmed.columns:
+        for label in list(set(confirmed.columns)):
             series = confirmed[label]
+            if type(series) == pd.DataFrame:
+                series = series.sum(axis=1)
+                series.name = label
             series = series[series >= 100]
+            series = series + 100 - series[0]
             series = series.reset_index(drop=True)
             concat_list.append(series)
 
         transformed = pd.concat(concat_list, axis=1)
 
-        print(transformed)
+        reference = pd.DataFrame()
+        reference['helper'] = transformed.index
+        reference['double every other day'] = (
+            100 * (2 ** (1 / 2)) ** reference['helper']
+        )
+        reference['double every third day'] = (
+            100 * (2 ** (1 / 3)) ** reference['helper']
+        )
+        reference['double every week'] = (
+            100 * (2 ** (1 / 7)) ** reference['helper']
+        )
+        reference['double every month'] = (
+            100 * (2 ** (1 / 30)) ** reference['helper']
+        )
 
-        transformed.plot(logy=True)
+        reference = reference.drop('helper', axis=1)
+        ax = transformed.plot(logy=True, marker='o', markersize=2)
+        reference.plot(ax=ax, style='--', color='gray')
         plt.grid()
         plt.title('COVID-19 cases per country' + self.data_disclaimer)
         plt.xlabel('Days since more than 100 cases')
@@ -157,8 +176,8 @@ class CovidPlot(object):
         plot_df = pd.DataFrame()
 
         plot_df['confirmed'] = total_df.confirmed.diff()
-        plot_df['deaths'] = total_df.deaths.diff()
-        plot_df['recovered'] = total_df.recovered.diff()
+        plot_df['deaths'] = total_df.deaths.diff().clip(lower=0)
+        plot_df['recovered'] = total_df.recovered.diff().clip(lower=0)
 
         plot_df.plot.area(stacked=False)
         plt.grid()
