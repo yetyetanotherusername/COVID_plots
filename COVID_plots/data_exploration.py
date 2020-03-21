@@ -50,6 +50,9 @@ class CovidPlot(object):
 
         self.data_disclaimer = ' (data source: Johns Hopkins CSSE)'
 
+        if not os.path.isdir(os.path.join(os.getcwd(), 'figures')):
+            os.mkdir(os.path.join(os.getcwd(), 'figures'))
+
     def calc_totals(self, countries=None):
         total_df = pd.DataFrame()
 
@@ -146,8 +149,8 @@ class CovidPlot(object):
         )
 
         reference = reference.drop('helper', axis=1)
-        ax = transformed.plot(logy=True, marker='o', markersize=2)
-        reference.plot(ax=ax, style='--', color='gray')
+        ax = transformed.plot(logy=True, marker='o', markersize=2, alpha=0.7)
+        reference.plot(ax=ax, style='--', colormap='winter', alpha=0.7)
         plt.grid()
         plt.title('COVID-19 cases per country' + self.data_disclaimer)
         plt.xlabel('Days since more than 100 cases')
