@@ -275,7 +275,7 @@ class CovidPlot(object):
         c_string = self.countries_to_string(countries)
 
         pandas_bokeh.output_file(
-            os.path.join('figures', 'totals.html'))
+            os.path.join('figures', 'rate.html'))
         curdoc().theme = 'dark_minimal'
         plot_df.plot_bokeh.area(
             figsize=(1500, 750),
