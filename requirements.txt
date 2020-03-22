@@ -4,3 +4,4 @@ matplotlib
 geopandas
 descartes
 shapely
+pandas-bokeh

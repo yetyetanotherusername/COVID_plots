@@ -4,7 +4,14 @@ import matplotlib.pyplot as plt
 from cycler import cycler
 import geopandas as gp
 import shapely
+import pandas_bokeh
+from bokeh.io import curdoc
+import bokeh
+from bokeh.palettes import Category20_20 as palette1
+from bokeh.palettes import Colorblind8 as palette2
+import itertools
 
+# set matplotlib options
 plt.style.use('dark_background')
 plt.rcParams['axes.prop_cycle'] = cycler(
     color=[u'#1f77b4', u'#ff7f0e', u'#2ca02c', u'#d62728', u'#9467bd',
@@ -102,9 +109,19 @@ class CovidPlot(object):
                 slice(None), slice(None), slice(None))
         ]
 
-        confirmed.plot()
-        plt.grid()
-        plt.savefig(os.path.join('figures', 'simple_plot.png'), dpi=300)
+        confirmed.columns = (
+            confirmed.columns.droplevel(3).droplevel(2).droplevel(1)
+        )
+
+        pandas_bokeh.output_file(
+            os.path.join('figures', 'simple_plot.html'))
+        curdoc().theme = 'dark_minimal'
+        confirmed.plot_bokeh.line(
+            figsize=(1500, 750),
+            title="simple plot",
+            plot_data_points=True,
+            plot_data_points_size=5,
+            marker="circle")
 
     def not_so_simple_plot(self, countries=['Germany', 'Austria', 'Italy']):
         if type(countries) != list:
@@ -149,13 +166,82 @@ class CovidPlot(object):
         )
 
         reference = reference.drop('helper', axis=1)
-        ax = transformed.plot(logy=True, marker='o', markersize=2, alpha=0.7)
-        reference.plot(ax=ax, style='--', colormap='winter', alpha=0.7)
-        plt.grid()
-        plt.title('COVID-19 cases per country' + self.data_disclaimer)
-        plt.xlabel('Days since more than 100 cases')
-        plt.ylabel('Accumulated positive cases')
-        plt.savefig(os.path.join('figures', 'shifted.png'), dpi=300)
+
+        bokeh.plotting.output_file(
+            os.path.join('figures', 'shifted.html'))
+        curdoc().theme = 'dark_minimal'
+
+        transformed['index'] = transformed.index
+        source = bokeh.models.sources.ColumnDataSource(transformed)
+
+        figure = bokeh.plotting.figure(
+            title='COVID-19 cases per country' + self.data_disclaimer,
+            plot_width=1500,
+            plot_height=750,
+            y_axis_type='log',
+            x_axis_label='Days since more than 100 cases',
+            y_axis_label='Accumulated positive cases')
+
+        column_list = list(transformed.columns)
+        column_list.remove('index')
+
+        colors = itertools.cycle(palette1)
+
+        for column, color in zip(column_list, colors):
+            glyph = figure.line(
+                x='index',
+                y=column,
+                source=source,
+                color=color,
+                legend_label=column,
+                alpha=0.6,
+                name=column
+            )
+
+            figure.circle(
+                x='index',
+                y=column,
+                source=source,
+                color=color,
+                radius=0.05,
+                alpha=0.6,
+                legend_label=column,
+                name=column
+            )
+
+            fstring = '{' + f'{column}' + '}'
+            hover_tool = bokeh.models.HoverTool(
+                tooltips=[(f'{column}', f'day: $index, value: @{fstring}')],
+                mode='vline',
+                renderers=[glyph],
+                line_policy='nearest')
+            figure.tools.append(hover_tool)
+
+        reference['index'] = reference.index
+        source = bokeh.models.sources.ColumnDataSource(reference)
+
+        column_list = list(reference.columns)
+        column_list.remove('index')
+
+        colors = itertools.cycle(palette2)
+
+        for column, color in zip(column_list, colors):
+            figure.line(
+                x='index',
+                y=column,
+                source=source,
+                color=color,
+                legend_label=column,
+                line_dash='dashed',
+                name=column
+            )
+
+        figure.legend.location = 'top_left'
+        figure.legend.click_policy = "hide"
+        figure.toolbar.active_scroll = figure.select_one(
+            bokeh.models.tools.WheelZoomTool)
+
+        bokeh.plotting.show(figure)
 
     def totals_plot(self, countries=None):
         total_df = self.calc_totals(countries)
@@ -165,13 +251,17 @@ class CovidPlot(object):
         )
 
         total_df = total_df.drop('confirmed', axis=1)
-
-        total_df.plot.area(alpha=0.6)
-        plt.grid()
         c_string = self.countries_to_string(countries)
-        plt.title(f'Total COVID-19 numbers, {c_string}' + self.data_disclaimer)
-        plt.ylabel('Number of individuals affected (stacked)')
-        plt.savefig(os.path.join('figures', 'totals.png'), dpi=300)
+
+        pandas_bokeh.output_file(
+            os.path.join('figures', 'totals.html'))
+        curdoc().theme = 'dark_minimal'
+        total_df.plot_bokeh.area(
+            figsize=(1500, 750),
+            title=f'Total COVID-19 numbers, {c_string}' + self.data_disclaimer,
+            ylabel='Number of individuals affected (stacked)',
+            stacked=True
+        )
 
     def rate_plot(self, countries=None):
         total_df = self.calc_totals(countries)
@@ -182,12 +272,16 @@ class CovidPlot(object):
         plot_df['deaths'] = total_df.deaths.diff().clip(lower=0)
         plot_df['recovered'] = total_df.recovered.diff().clip(lower=0)
 
-        plot_df.plot.area(stacked=False)
-        plt.grid()
         c_string = self.countries_to_string(countries)
-        plt.title(f'{c_string} daily COVID-19 cases' + self.data_disclaimer)
-        plt.ylabel('Number of newly affected individuals per day')
-        plt.savefig(os.path.join('figures', 'rates.png'), dpi=300)
+
+        pandas_bokeh.output_file(
+            os.path.join('figures', 'totals.html'))
+        curdoc().theme = 'dark_minimal'
+        plot_df.plot_bokeh.area(
+            figsize=(1500, 750),
+            title=f'{c_string} daily COVID-19 cases' + self.data_disclaimer,
+            ylabel='Number of newly affected individuals per day'
+        )
 
     def map_plot(self):
 
