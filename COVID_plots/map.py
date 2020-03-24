@@ -31,12 +31,13 @@ fig.patches(
 
 
 now = cdf.iloc[0, :].T.to_frame()
-now['date'] = str(now.columns[0])
+now['date'] = str(now.columns[0].strftime('%d %m %Y'))
 now.columns = ['confirmed', 'date']
 now = now.reset_index()
-# now.loc[now.confirmed == 0, 'confirmed'] = np.nan
+now.loc[now.confirmed == 0, 'confirmed'] = np.nan
 now.confirmed = np.log2(now.confirmed) / 3
 source = bokeh.models.sources.ColumnDataSource(now)
+t_source = bokeh.models.sources.ColumnDataSource(now.iloc[[0]])
 
 glyph = fig.circle(
     'Long', 'Lat',
@@ -47,29 +48,31 @@ glyph = fig.circle(
 
 data_source = glyph.data_source
 
-# textglyph = fig.text(
-#     x=0, y=0,
-#     text='date',
-#     source=source,
-#     color='white')
+textglyph = fig.text(
+    x=0, y=90,
+    text='date',
+    source=t_source,
+    color='white',
+    text_align='center',
+    text_font_size='20pt')
 
-# text_source = textglyph.data_source
+text_source = textglyph.data_source
 
 i = 0
 
 
 def callback():
     global i
-    now = cdf.iloc[0, :].T.to_frame()
-    now['date'] = str(now.columns[0])
+    now = cdf.iloc[i, :].T.to_frame()
+    now['date'] = str(now.columns[0].strftime('%d-%m-%Y'))
     now.columns = ['confirmed', 'date']
     now = now.reset_index()
-    # now.loc[now.confirmed == 0, 'confirmed'] = np.nan
+    now.loc[now.confirmed == 0, 'confirmed'] = np.nan
     now.confirmed = np.log2(now.confirmed) / 3
 
-    cds = dict(bokeh.models.sources.ColumnDataSource(now).data)
-    data_source.data = cds
-    # text_source.data = cds
+    data_source.data = dict(bokeh.models.sources.ColumnDataSource(now).data)
+    text_source.data = dict(bokeh.models.sources.ColumnDataSource(
+        now.iloc[[0]]).data)
 
     i += 1
 
