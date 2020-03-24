@@ -1,3 +1,4 @@
 .env/
 figures/
 *.sublime*
+__pycache__
