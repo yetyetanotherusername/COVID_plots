@@ -1,22 +1,12 @@
 import os
+import itertools
 import pandas as pd
-import matplotlib.pyplot as plt
-from cycler import cycler
-import geopandas as gp
-import shapely
+
+import bokeh
 import pandas_bokeh
 from bokeh.io import curdoc
-import bokeh
 from bokeh.palettes import Category20_20 as palette1
 from bokeh.palettes import Colorblind8 as palette2
-import itertools
-
-# set matplotlib options
-plt.style.use('dark_background')
-plt.rcParams['axes.prop_cycle'] = cycler(
-    color=[u'#1f77b4', u'#ff7f0e', u'#2ca02c', u'#d62728', u'#9467bd',
-           u'#8c564b', u'#e377c2', u'#7f7f7f', u'#bcbd22', u'#17becf'])
-plt.rcParams['figure.figsize'] = (10.0, 5.0)
 
 
 class CovidPlot(object):
@@ -121,7 +111,8 @@ class CovidPlot(object):
             title="simple plot",
             plot_data_points=True,
             plot_data_points_size=5,
-            marker="circle")
+            marker="circle",
+            sizing_mode='scale_both')
 
     def not_so_simple_plot(self, countries=['Germany', 'Austria', 'Italy']):
         if type(countries) != list:
@@ -144,7 +135,7 @@ class CovidPlot(object):
                 series = series.sum(axis=1)
                 series.name = label
             series = series[series >= 100]
-            series = series + 100 - series[0]
+            # series = series + 100 - series[0]
             series = series.reset_index(drop=True)
             concat_list.append(series)
 
@@ -180,7 +171,8 @@ class CovidPlot(object):
             plot_height=750,
             y_axis_type='log',
             x_axis_label='Days since more than 100 cases',
-            y_axis_label='Accumulated positive cases')
+            y_axis_label='Accumulated positive cases',
+            sizing_mode='scale_both')
 
         column_list = list(transformed.columns)
         column_list.remove('index')
@@ -211,10 +203,12 @@ class CovidPlot(object):
 
             fstring = '{' + f'{column}' + '}'
             hover_tool = bokeh.models.HoverTool(
-                tooltips=[(f'{column}', f'day: $index, value: @{fstring}')],
+                tooltips=[(f'{column}',
+                           f'Day: $index,Confirmed: @{fstring}')],
                 mode='vline',
                 renderers=[glyph],
                 line_policy='nearest')
+
             figure.tools.append(hover_tool)
 
         reference['index'] = reference.index
@@ -260,7 +254,8 @@ class CovidPlot(object):
             figsize=(1500, 750),
             title=f'Total COVID-19 numbers, {c_string}' + self.data_disclaimer,
             ylabel='Number of individuals affected (stacked)',
-            stacked=True
+            stacked=True,
+            sizing_mode='scale_both'
         )
 
     def rate_plot(self, countries=None):
@@ -280,63 +275,25 @@ class CovidPlot(object):
         plot_df.plot_bokeh.area(
             figsize=(1500, 750),
             title=f'{c_string} daily COVID-19 cases' + self.data_disclaimer,
-            ylabel='Number of newly affected individuals per day'
+            ylabel='Number of newly affected individuals per day',
+            sizing_mode='scale_both'
         )
-
-    def map_plot(self):
-
-        world = gp.read_file(gp.datasets.get_path('naturalearth_lowres'))
-
-        cdf = self.confirmed_df - self.deaths_df - self.recovered_df
-
-        def animate(idx):
-            now = cdf.iloc[idx, :].T.to_frame()
-            now.columns = ['confirmed']
-            now = now.reset_index()
-
-            geometry = [
-                shapely.geometry.Point(xy) for xy in zip(now.Long, now.Lat)
-            ]
-
-            now = now.drop(['Lat', 'Long'], axis=1)
-            crs = {'init': 'epsg:4326'}
-            pgdf = gp.GeoDataFrame(
-                now, crs=crs, geometry=geometry)
-
-            base = world.plot()
-
-            pgdf.plot(
-                ax=base, color='r',
-                markersize=pgdf['confirmed'] / 20,
-                alpha=0.3
-            )
-
-            plt.title('COVID-19 development' + self.data_disclaimer)
-            plt.text(0, -50, cdf.iloc[idx, :].name.date())
-
-            if len(str(idx)) > 2:
-                lex_sort_num = str(idx)
-            elif len(str(idx)) > 1:
-                lex_sort_num = f'0{str(idx)}'
-            else:
-                lex_sort_num = f'00{str(idx)}'
-
-            plt.savefig(
-                os.path.join(
-                    'figures', f'animated_map{lex_sort_num}.png'), dpi=300)
-
-            plt.close()
-
-        for iidx in range(0, cdf.shape[0]):
-            animate(iidx)
 
     def run(self):
         # self.simple_plot()
-        self.not_so_simple_plot()
-        self.totals_plot()
-        self.rate_plot()
-        # self.map_plot()
-        # plt.show()
+        self.not_so_simple_plot([
+            'Germany',
+            'Austria',
+            'Italy',
+            'US',
+            'United Kingdom',
+            'Spain',
+            'Norway',
+            'Sweden',
+            'Finland'
+        ])
+        self.totals_plot(['Austria'])
+        self.rate_plot(['Austria'])
 
 
 def main():
