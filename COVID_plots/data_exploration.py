@@ -45,6 +45,13 @@ class CovidPlot(object):
         #     ['Country/Region', 'Province/State', 'Lat', 'Long']).sort_index().T
         # self.recovered_df.index = pd.to_datetime(self.recovered_df.index)
 
+        self.population_data = pd.read_csv(
+            os.path.join('data', 'population_numbers.csv'),
+            names=['Country', 'Population']
+        ).set_index('Country', drop=True).T.sort_index(axis=1).set_index(
+            'index', drop=True)
+        self.population_data.index = pd.to_datetime(self.population_data.index)
+
         self.data_disclaimer = ' (data source: Johns Hopkins CSSE)'
 
         if not os.path.isdir(os.path.join(os.getcwd(), 'figures')):
@@ -114,6 +121,54 @@ class CovidPlot(object):
             marker="circle",
             sizing_mode='scale_both')
 
+    def relative_plot(self, countries=['Germany', 'Austria', 'Italy']):
+        if type(countries) != list:
+            raise TypeError('countries argument accepts type list, '
+                            f'got {type(countries)} instead')
+
+        confirmed = self.confirmed_df.loc[
+            :, (countries,
+                slice(None), slice(None), slice(None))
+        ]
+
+        confirmed.columns = (
+            confirmed.columns.droplevel(3).droplevel(2).droplevel(1)
+        )
+
+        concat_list = []
+        for label in list(set(confirmed.columns)):
+            series = confirmed[label]
+            if type(series) == pd.DataFrame:
+                series = series.sum(axis=1)
+                series.name = label
+
+            concat_list.append(series)
+
+        confirmed = pd.concat(concat_list, axis=1).sort_index(axis=1)
+
+        population_data = self.population_data.astype(int).reindex(
+            confirmed.index).fillna(method='ffill')
+
+        confirmed = confirmed / population_data * 100000000
+
+        confirmed = confirmed['2020-02-25':]
+
+        pandas_bokeh.output_file(
+            os.path.join('figures', 'relative_plot.html'))
+        curdoc().theme = 'dark_minimal'
+        confirmed.plot_bokeh.line(
+            figsize=(1500, 750),
+            title='COVID-19 cases per country' + self.data_disclaimer,
+            plot_data_points=True,
+            plot_data_points_size=5,
+            marker="circle",
+            sizing_mode='scale_both',
+            ylabel='Confirmed cases per million inhabitants',
+            legend='top_left',
+            logy=True,
+            alpha=0.6
+        )
+
     def not_so_simple_plot(self, countries=['Germany', 'Austria', 'Italy']):
         if type(countries) != list:
             raise TypeError('countries argument accepts type list, '
@@ -139,7 +194,7 @@ class CovidPlot(object):
             series = series.reset_index(drop=True)
             concat_list.append(series)
 
-        transformed = pd.concat(concat_list, axis=1)
+        transformed = pd.concat(concat_list, axis=1).sort_index(axis=1)
 
         reference = pd.DataFrame()
         reference['helper'] = transformed.index
