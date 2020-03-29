@@ -5,6 +5,7 @@ import pandas as pd
 import bokeh
 import pandas_bokeh
 from bokeh.io import curdoc
+from bokeh.models import DatetimeTickFormatter
 from bokeh.palettes import Category20_20 as palette1
 from bokeh.palettes import Colorblind8 as palette2
 
@@ -153,21 +154,73 @@ class CovidPlot(object):
 
         confirmed = confirmed['2020-02-25':]
 
-        pandas_bokeh.output_file(
+        bokeh.plotting.output_file(
             os.path.join('figures', 'relative_plot.html'))
         curdoc().theme = 'dark_minimal'
-        confirmed.plot_bokeh.line(
-            figsize=(1500, 750),
+
+        confirmed['idx'] = confirmed.index.to_pydatetime()
+        source = bokeh.models.sources.ColumnDataSource(confirmed)
+
+        figure = bokeh.plotting.figure(
             title='COVID-19 cases per country' + self.data_disclaimer,
-            plot_data_points=True,
-            plot_data_points_size=5,
-            marker="circle",
-            sizing_mode='scale_both',
-            ylabel='Confirmed cases per million inhabitants',
-            legend='top_left',
-            logy=True,
-            alpha=0.6
+            plot_width=1500,
+            plot_height=750,
+            x_axis_type='datetime',
+            x_axis_label='Date',
+            y_axis_type='log',
+            y_axis_label='Confirmed cases per million inhabitants',
+            sizing_mode='scale_both'
         )
+
+        column_list = list(confirmed.columns)
+        column_list.remove('idx')
+
+        colors = itertools.cycle(palette1)
+
+        for column, color in zip(column_list, colors):
+            glyph = figure.line(
+                x='idx',
+                y=column,
+                source=source,
+                color=color,
+                legend_label=column,
+                alpha=0.6,
+                name=column
+            )
+
+            figure.circle(
+                x='idx',
+                y=column,
+                source=source,
+                color=color,
+                size=5,
+                alpha=0.6,
+                legend_label=column,
+                name=column
+            )
+
+            fstring = '{' + f'{column}' + '}'
+            dstring = '{%F}'
+            hover_tool = bokeh.models.HoverTool(
+                tooltips=[(f'{column}',
+                           f'Date: $x{dstring}, Confirmed: @{fstring}')],
+                formatters={'$x': "datetime"},
+                mode='vline',
+                renderers=[glyph],
+                line_policy='nearest')
+
+            figure.tools.append(hover_tool)
+
+        figure.toolbar.active_scroll = figure.select_one(
+            bokeh.models.tools.WheelZoomTool)
+        figure.legend.location = 'top_left'
+        figure.legend.click_policy = "hide"
+        figure.xaxis.formatter = DatetimeTickFormatter(
+            days='%d-%m-%Y',
+            hours='%H:%M'
+        )
+
+        bokeh.plotting.show(figure)
 
     def not_so_simple_plot(self, countries=['Germany', 'Austria', 'Italy']):
         if type(countries) != list:
@@ -217,7 +270,7 @@ class CovidPlot(object):
             os.path.join('figures', 'shifted.html'))
         curdoc().theme = 'dark_minimal'
 
-        transformed['index'] = transformed.index
+        transformed['idx'] = transformed.index
         source = bokeh.models.sources.ColumnDataSource(transformed)
 
         figure = bokeh.plotting.figure(
@@ -230,13 +283,13 @@ class CovidPlot(object):
             sizing_mode='scale_both')
 
         column_list = list(transformed.columns)
-        column_list.remove('index')
+        column_list.remove('idx')
 
         colors = itertools.cycle(palette1)
 
         for column, color in zip(column_list, colors):
             glyph = figure.line(
-                x='index',
+                x='idx',
                 y=column,
                 source=source,
                 color=color,
@@ -246,7 +299,7 @@ class CovidPlot(object):
             )
 
             figure.circle(
-                x='index',
+                x='idx',
                 y=column,
                 source=source,
                 color=color,
@@ -259,24 +312,24 @@ class CovidPlot(object):
             fstring = '{' + f'{column}' + '}'
             hover_tool = bokeh.models.HoverTool(
                 tooltips=[(f'{column}',
-                           f'Day: $index,Confirmed: @{fstring}')],
+                           f'Day: $idx, Confirmed: @{fstring}')],
                 mode='vline',
                 renderers=[glyph],
                 line_policy='nearest')
 
             figure.tools.append(hover_tool)
 
-        reference['index'] = reference.index
+        reference['idx'] = reference.index
         source = bokeh.models.sources.ColumnDataSource(reference)
 
         column_list = list(reference.columns)
-        column_list.remove('index')
+        column_list.remove('idx')
 
         colors = itertools.cycle(palette2)
 
         for column, color in zip(column_list, colors):
             figure.line(
-                x='index',
+                x='idx',
                 y=column,
                 source=source,
                 color=color,
