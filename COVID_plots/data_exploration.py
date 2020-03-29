@@ -26,9 +26,9 @@ class CovidPlot(object):
             self.data_path, 'time_series_covid19_deaths_global.csv'
         )
 
-        # self.recovered_filepath = os.path.join(
-        #     self.data_path, 'time_series_19-covid-Recovered.csv'
-        # )
+        self.recovered_filepath = os.path.join(
+            self.data_path, 'time_series_covid19_recovered_global.csv'
+        )
 
         self.confirmed_raw = pd.read_csv(self.confirmed_filepath)
         self.confirmed_df = self.confirmed_raw.set_index(
@@ -40,10 +40,10 @@ class CovidPlot(object):
             ['Country/Region', 'Province/State', 'Lat', 'Long']).sort_index().T
         self.deaths_df.index = pd.to_datetime(self.deaths_df.index)
 
-        # self.recovered_raw = pd.read_csv(self.recovered_filepath)
-        # self.recovered_df = self.recovered_raw.set_index(
-        #     ['Country/Region', 'Province/State', 'Lat', 'Long']).sort_index().T
-        # self.recovered_df.index = pd.to_datetime(self.recovered_df.index)
+        self.recovered_raw = pd.read_csv(self.recovered_filepath)
+        self.recovered_df = self.recovered_raw.set_index(
+            ['Country/Region', 'Province/State', 'Lat', 'Long']).sort_index().T
+        self.recovered_df.index = pd.to_datetime(self.recovered_df.index)
 
         self.population_data = pd.read_csv(
             os.path.join('data', 'population_numbers.csv'),
@@ -69,9 +69,9 @@ class CovidPlot(object):
                 :, (countries, slice(None), slice(None), slice(None))
             ]
 
-            # recovered_df = self.recovered_df.loc[
-            #     :, (countries, slice(None), slice(None), slice(None))
-            # ]
+            recovered_df = self.recovered_df.loc[
+                :, (countries, slice(None), slice(None), slice(None))
+            ]
 
         elif countries is not None:
             raise TypeError('countries argument accepts type list, '
@@ -80,11 +80,11 @@ class CovidPlot(object):
         else:
             confirmed_df = self.confirmed_df
             deaths_df = self.deaths_df
-            # recovered_df = self.recovered_df
+            recovered_df = self.recovered_df
 
         total_df['confirmed'] = confirmed_df.sum(axis=1)
         total_df['deaths'] = deaths_df.sum(axis=1)
-        # total_df['recovered'] = recovered_df.sum(axis=1)
+        total_df['recovered'] = recovered_df.sum(axis=1)
 
         return total_df
 
@@ -149,7 +149,7 @@ class CovidPlot(object):
         population_data = self.population_data.astype(int).reindex(
             confirmed.index).fillna(method='ffill')
 
-        confirmed = confirmed / population_data * 100000000
+        confirmed = confirmed / population_data * 1000000
 
         confirmed = confirmed['2020-02-25':]
 
@@ -190,7 +190,7 @@ class CovidPlot(object):
                 series = series.sum(axis=1)
                 series.name = label
             series = series[series >= 100]
-            # series = series[0:32]
+            # series = series[0:35]
             series = series.reset_index(drop=True)
             concat_list.append(series)
 
@@ -294,7 +294,10 @@ class CovidPlot(object):
 
     def totals_plot(self, countries=None):
         total_df = self.calc_totals(countries)
-        total_df['currently_sick'] = total_df.confirmed - total_df.deaths
+        total_df['currently_sick'] = (
+            total_df.confirmed - total_df.deaths - total_df.recovered
+        )
+
         total_df = total_df.drop('confirmed', axis=1)
         c_string = self.countries_to_string(countries)
 
@@ -316,7 +319,7 @@ class CovidPlot(object):
 
         plot_df['confirmed'] = total_df.confirmed.diff()
         plot_df['deaths'] = total_df.deaths.diff().clip(lower=0)
-        # plot_df['recovered'] = total_df.recovered.diff().clip(lower=0)
+        plot_df['recovered'] = total_df.recovered.diff().clip(lower=0)
 
         c_string = self.countries_to_string(countries)
 
@@ -331,8 +334,7 @@ class CovidPlot(object):
         )
 
     def run(self):
-        # self.simple_plot()
-        self.not_so_simple_plot([
+        countries = [
             'Germany',
             'Austria',
             'Italy',
@@ -341,10 +343,14 @@ class CovidPlot(object):
             'Spain',
             'Norway',
             'Sweden',
-            'Finland'
-        ])
-        self.totals_plot(['Austria'])
-        self.rate_plot(['Austria'])
+            'Finland',
+            'China'
+        ]
+        # self.simple_plot(countries)
+        self.relative_plot(countries)
+        self.not_so_simple_plot(countries)
+        self.totals_plot()
+        self.rate_plot()
 
 
 def main():
