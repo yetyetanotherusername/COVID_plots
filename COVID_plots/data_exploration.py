@@ -200,11 +200,11 @@ class CovidPlot(object):
             )
 
             fstring = '{' + f'{column}' + '}'
-            dstring = '{%F}'
+            dstring = '{%d-%m-%Y}'
             hover_tool = bokeh.models.HoverTool(
                 tooltips=[(f'{column}',
-                           f'Date: $x{dstring}, Confirmed: @{fstring}')],
-                formatters={'$x': "datetime"},
+                           f'Date: @idx{dstring}, Confirmed: @{fstring}')],
+                formatters={'@idx': 'datetime'},
                 mode='vline',
                 renderers=[glyph],
                 line_policy='nearest')
@@ -312,7 +312,7 @@ class CovidPlot(object):
             fstring = '{' + f'{column}' + '}'
             hover_tool = bokeh.models.HoverTool(
                 tooltips=[(f'{column}',
-                           f'Day: $idx, Confirmed: @{fstring}')],
+                           f'Day: @idx, Confirmed: @{fstring}')],
                 mode='vline',
                 renderers=[glyph],
                 line_policy='nearest')
