@@ -2,12 +2,14 @@ import bokeh
 import numpy as np
 import geopandas as gp
 from bokeh.io import curdoc
+from bokeh.themes import Theme
 from bokeh.plotting import figure
 from data_exploration import CovidPlot
+from COVID_plots.themes.dark_minimal_adapted import json as jt
 
 helper = CovidPlot()
 
-curdoc().theme = 'dark_minimal'
+curdoc().theme = Theme(json=jt)
 
 world = gp.read_file(gp.datasets.get_path('naturalearth_lowres'))
 
@@ -18,8 +20,6 @@ world_source = bokeh.models.sources.GeoJSONDataSource(
 
 title = 'COVID-19 development' + helper.data_disclaimer
 fig = figure(
-    sizing_mode='scale_both',
-    aspect_ratio=2,
     title=title
 )
 

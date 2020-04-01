@@ -2,3 +2,5 @@
 figures/
 *.sublime*
 __pycache__
+
+*.egg-info
