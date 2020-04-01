@@ -17,12 +17,12 @@ pip install -Ur requirements.txt
 
 ### run script
 ```
-python COVID_plots/data_exploration.py
+python COVID_plots/plots/data_exploration.py
 ```
 
 ### animated map plot
 ```
-bokeh serve --show COVID_plots/map.py
+bokeh serve --show COVID_plots/plots/map.py
 ```
 
 plots can be found in `COVID_plots/figures`

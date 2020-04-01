@@ -15,6 +15,32 @@ curdoc().theme = Theme(json=jt)
 
 
 class CovidPlot(object):
+    def parse_csv(self, path):
+        raw = pd.read_csv(path)
+        df = raw.set_index(
+            ['Country/Region', 'Province/State', 'Lat', 'Long']
+        ).sort_index().T.drop(columns='US')
+        df.index = pd.to_datetime(df.index)
+        return df
+
+    def parse_US_csv(self, path):
+        raw = pd.read_csv(path)
+        df = raw.rename(
+            columns={
+                'Country_Region': 'Country/Region',
+                'Province_State': 'Province/State',
+                'Long_': 'Long'
+            }
+        ).set_index(
+            ['Country/Region', 'Province/State', 'Lat', 'Long']
+        ).drop(
+            ['UID', 'iso2', 'iso3', 'code3', 'FIPS', 'Admin2', 'Combined_Key',
+             'Population'],
+            axis=1, errors='ignore'
+        ).sort_index().T
+        df.index = pd.to_datetime(df.index)
+        return df
+
     def __init__(self):
         self.data_path = os.path.join(
             os.path.abspath(os.pardir),
@@ -35,20 +61,23 @@ class CovidPlot(object):
             self.data_path, 'time_series_covid19_recovered_global.csv'
         )
 
-        self.confirmed_raw = pd.read_csv(self.confirmed_filepath)
-        self.confirmed_df = self.confirmed_raw.set_index(
-            ['Country/Region', 'Province/State', 'Lat', 'Long']).sort_index().T
-        self.confirmed_df.index = pd.to_datetime(self.confirmed_df.index)
+        self.confirmed_US_filepath = os.path.join(
+            self.data_path, 'time_series_covid19_confirmed_US.csv'
+        )
 
-        self.deaths_raw = pd.read_csv(self.deaths_filepath)
-        self.deaths_df = self.deaths_raw.set_index(
-            ['Country/Region', 'Province/State', 'Lat', 'Long']).sort_index().T
-        self.deaths_df.index = pd.to_datetime(self.deaths_df.index)
+        self.deaths_US_filepath = os.path.join(
+            self.data_path, 'time_series_covid19_deaths_US.csv'
+        )
 
-        self.recovered_raw = pd.read_csv(self.recovered_filepath)
-        self.recovered_df = self.recovered_raw.set_index(
-            ['Country/Region', 'Province/State', 'Lat', 'Long']).sort_index().T
-        self.recovered_df.index = pd.to_datetime(self.recovered_df.index)
+        self.confirmed_df = self.parse_csv(self.confirmed_filepath)
+        self.deaths_df = self.parse_csv(self.deaths_filepath)
+        self.recovered_df = self.parse_csv(self.recovered_filepath)
+
+        confirmed_US = self.parse_US_csv(self.confirmed_US_filepath)
+        deaths_US = self.parse_US_csv(self.deaths_US_filepath)
+
+        self.confirmed_df = self.confirmed_df.join(confirmed_US)
+        self.deaths_df = self.deaths_df.join(deaths_US)
 
         self.population_data = pd.read_csv(
             os.path.join('COVID_plots', 'data', 'population_numbers.csv'),

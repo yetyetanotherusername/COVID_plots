@@ -13,6 +13,9 @@ curdoc().theme = Theme(json=jt)
 
 world = gp.read_file(gp.datasets.get_path('naturalearth_lowres'))
 
+helper.recovered_df = helper.recovered_df.reindex(
+    columns=helper.confirmed_df.columns).fillna(0)
+
 cdf = helper.confirmed_df - helper.deaths_df - helper.recovered_df
 
 world_source = bokeh.models.sources.GeoJSONDataSource(
@@ -35,7 +38,12 @@ now['date'] = str(now.columns[0].strftime('%d %m %Y'))
 now.columns = ['confirmed', 'date']
 now = now.reset_index()
 now.loc[now.confirmed == 0, 'confirmed'] = np.nan
-now.confirmed = np.log2(now.confirmed) / 3
+mask = ~np.logical_or(
+    np.isclose(now.Lat, 0),
+    np.isclose(now.Long, 0)
+)
+now = now.loc[mask, :]
+now.confirmed = now.confirmed / 5000
 source = bokeh.models.sources.ColumnDataSource(now)
 t_source = bokeh.models.sources.ColumnDataSource(now.iloc[[0]])
 
@@ -44,7 +52,8 @@ glyph = fig.circle(
     source=source,
     color='red',
     alpha=0.3,
-    radius='confirmed')
+    radius='confirmed',
+    radius_dimension='min')
 
 data_source = glyph.data_source
 
@@ -68,7 +77,12 @@ def callback():
     now.columns = ['confirmed', 'date']
     now = now.reset_index()
     now.loc[now.confirmed == 0, 'confirmed'] = np.nan
-    now.confirmed = np.log2(now.confirmed) / 3
+    mask = ~np.logical_or(
+        np.isclose(now.Lat, 0),
+        np.isclose(now.Long, 0)
+    )
+    now = now.loc[mask, :]
+    now.confirmed = now.confirmed / 5000
 
     data_source.data = dict(bokeh.models.sources.ColumnDataSource(now).data)
     text_source.data = dict(bokeh.models.sources.ColumnDataSource(
