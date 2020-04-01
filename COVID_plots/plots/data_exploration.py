@@ -19,7 +19,7 @@ class CovidPlot(object):
         raw = pd.read_csv(path)
         df = raw.set_index(
             ['Country/Region', 'Province/State', 'Lat', 'Long']
-        ).sort_index().T.drop(columns='US')
+        ).sort_index().T
         df.index = pd.to_datetime(df.index)
         return df
 
@@ -76,8 +76,10 @@ class CovidPlot(object):
         confirmed_US = self.parse_US_csv(self.confirmed_US_filepath)
         deaths_US = self.parse_US_csv(self.deaths_US_filepath)
 
-        self.confirmed_df = self.confirmed_df.join(confirmed_US)
-        self.deaths_df = self.deaths_df.join(deaths_US)
+        self.confirmed_df = self.confirmed_df.drop(
+            columns='US').join(confirmed_US)
+        self.deaths_df = self.deaths_df.drop(
+            columns='US').join(deaths_US)
 
         self.population_data = pd.read_csv(
             os.path.join('COVID_plots', 'data', 'population_numbers.csv'),
