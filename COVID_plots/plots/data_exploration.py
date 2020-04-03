@@ -1,6 +1,7 @@
 import os
 import itertools
 import pandas as pd
+import numpy as np
 
 import bokeh
 import pandas_bokeh
@@ -269,7 +270,7 @@ class CovidPlot(object):
             if type(series) == pd.DataFrame:
                 series = series.sum(axis=1)
                 series.name = label
-            series = series[series >= 100]
+            series = series[series >= 1000]
             # series = series[0:35]
             series = series.reset_index(drop=True)
             concat_list.append(series)
@@ -278,24 +279,36 @@ class CovidPlot(object):
 
         reference = pd.DataFrame()
         reference['helper'] = transformed.index
+        index_space = np.arange(0, reference.index.tolist()[-1] + 1, 1 / 24)
+        reference = reference.reindex(
+            index_space).interpolate().loc[:reference.index[-1]]
         reference['double every other day'] = (
-            100 * (2 ** (1 / 2)) ** reference['helper']
+            1000 * (2 ** (1 / 2)) ** reference['helper']
         )
         reference['double every third day'] = (
-            100 * (2 ** (1 / 3)) ** reference['helper']
+            1000 * (2 ** (1 / 3)) ** reference['helper']
         )
         reference['double every week'] = (
-            100 * (2 ** (1 / 7)) ** reference['helper']
+            1000 * (2 ** (1 / 7)) ** reference['helper']
         )
+
+        reference['double every other_week'] = (
+            1000 * (2 ** (1 / 14)) ** reference['helper']
+        )
+
         reference['double every month'] = (
-            100 * (2 ** (1 / 30)) ** reference['helper']
+            1000 * (2 ** (1 / 30)) ** reference['helper']
         )
 
         reference = reference.drop('helper', axis=1)
+
+        max_crop = transformed.max().max()
         reference.loc[
-            reference['double every other day'] >
-            reference['double every third day'].iloc[-1],
+            reference['double every other day'] > max_crop,
             'double every other day'] = float('nan')
+        reference.loc[
+            reference['double every third day'] > max_crop,
+            'double every third day'] = float('nan')
 
         bokeh.plotting.output_file(
             os.path.join('figures', 'shifted.html'))
@@ -306,7 +319,7 @@ class CovidPlot(object):
         figure = bokeh.plotting.figure(
             title='COVID-19 cases per country' + self.data_disclaimer,
             y_axis_type='log',
-            x_axis_label='Days since more than 100 cases',
+            x_axis_label='Days since more than 1000 cases',
             y_axis_label='Accumulated positive cases'
         )
 

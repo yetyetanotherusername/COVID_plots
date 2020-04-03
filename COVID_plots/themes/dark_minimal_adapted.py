@@ -45,7 +45,7 @@ json = {
             'label_standoff': 3,
             'label_text_color': '#E0E0E0',
             'label_text_font': text_font,
-            'label_text_font_size': '1em',
+            'label_text_font_size': '1.2em',
 
             'border_line_alpha': 0,
             'background_fill_alpha': 0.25,
