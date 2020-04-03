@@ -278,10 +278,10 @@ class CovidPlot(object):
         transformed = pd.concat(concat_list, axis=1).sort_index(axis=1)
 
         reference = pd.DataFrame()
-        reference['helper'] = transformed.index
-        index_space = np.arange(0, reference.index.tolist()[-1] + 1, 1 / 24)
-        reference = reference.reindex(
-            index_space).interpolate().loc[:reference.index[-1]]
+        reference['helper'] = np.arange(
+            0, transformed.index.tolist()[-1], 1 / 24)
+        reference.index = reference.helper
+
         reference['double every other day'] = (
             1000 * (2 ** (1 / 2)) ** reference['helper']
         )
