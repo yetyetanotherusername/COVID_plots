@@ -292,7 +292,7 @@ class CovidPlot(object):
             1000 * (2 ** (1 / 7)) ** reference['helper']
         )
 
-        reference['double every other_week'] = (
+        reference['double every other week'] = (
             1000 * (2 ** (1 / 14)) ** reference['helper']
         )
 
@@ -421,6 +421,106 @@ class CovidPlot(object):
             ylabel='Number of newly affected individuals per day',
             sizing_mode='scale_both'
         )
+
+    def increase_plot(self, countries=None):
+        confirmed = self.confirmed_df.loc[
+            :, (countries,
+                slice(None), slice(None), slice(None))
+        ]
+
+        confirmed.columns = (
+            confirmed.columns.droplevel(3).droplevel(2).droplevel(1))
+
+        concat_list = []
+        for label in list(set(confirmed.columns)):
+            series = confirmed[label]
+            if type(series) == pd.DataFrame:
+                series = series.sum(axis=1)
+                series.name = label
+            series = series / series.shift(1)
+
+            concat_list.append(series)
+
+        confirmed = pd.concat(concat_list, axis=1).sort_index(axis=1)
+        confirmed = confirmed['2020-03-15':]
+        confirmed['idx'] = confirmed.index
+        confirmed['idx'] = confirmed.index.to_pydatetime()
+        source = bokeh.models.sources.ColumnDataSource(confirmed)
+
+        bokeh.plotting.output_file(
+            os.path.join('figures', 'increase_plot.html'))
+
+        figure = bokeh.plotting.figure(
+            title=('COVID-19 infections daily growth factor per country' +
+                   self.data_disclaimer),
+            x_axis_type='datetime',
+            x_axis_label='Date',
+            # y_axis_type='log',
+            y_axis_label='Daily growth factor',
+        )
+
+        xmin = confirmed.idx.iat[0]
+        xmax = confirmed.idx.iat[-1]
+
+        ymin = 0.8
+        ymax = 1.6
+
+        y_border = 2 ** (1 / 14)
+
+        figure.patches(
+            [[xmin, xmin, xmax, xmax],
+             [xmin, xmin, xmax, xmax]],
+            [[y_border, ymax, ymax, y_border],
+             [ymin, y_border, y_border, ymin]],
+            color=["red", "lime"],
+            alpha=[0.1, 0.1],
+            line_width=0)
+
+        column_list = list(confirmed.columns)
+        column_list.remove('idx')
+
+        colors = itertools.cycle(palette1)
+
+        for column, color in zip(column_list, colors):
+            glyph = figure.line(
+                x='idx',
+                y=column,
+                source=source,
+                color=color,
+                legend_label=column,
+                alpha=0.6,
+                name=column
+            )
+
+            figure.circle(
+                x='idx',
+                y=column,
+                source=source,
+                color=color,
+                size=5,
+                alpha=0.6,
+                legend_label=column,
+                name=column
+            )
+
+            fstring = '{' + f'{column}' + '}'
+            dstring = '{%d-%m-%Y}'
+            hover_tool = bokeh.models.HoverTool(
+                tooltips=[(f'{column}',
+                           f'Date: @idx{dstring}, Confirmed: @{fstring}')],
+                formatters={'@idx': 'datetime'},
+                mode='vline',
+                renderers=[glyph],
+                line_policy='nearest')
+
+            figure.tools.append(hover_tool)
+
+        figure.xaxis.formatter = DatetimeTickFormatter(
+            days='%d-%m-%Y',
+            hours='%H:%M'
+        )
+
+        bokeh.plotting.show(figure)
 
     def run(self):
         countries = [
