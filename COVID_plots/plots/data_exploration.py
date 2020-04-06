@@ -437,11 +437,12 @@ class CovidPlot(object):
             if type(series) == pd.DataFrame:
                 series = series.sum(axis=1)
                 series.name = label
-            series = series / series.shift(1)
 
             concat_list.append(series)
 
-        confirmed = pd.concat(concat_list, axis=1).sort_index(axis=1)
+        confirmed = pd.concat(
+            concat_list, axis=1).sort_index().sort_index(axis=1)
+        confirmed = confirmed / confirmed.shift(1)
         confirmed = confirmed['2020-03-15':]
         confirmed['idx'] = confirmed.index
         confirmed['idx'] = confirmed.index.to_pydatetime()
@@ -538,6 +539,7 @@ class CovidPlot(object):
         # self.simple_plot(countries)
         self.relative_plot(countries)
         self.not_so_simple_plot(countries)
+        self.increase_plot(countries)
         self.totals_plot()
         self.rate_plot()
 
