@@ -190,6 +190,8 @@ class CovidPlot(object):
 
         confirmed = confirmed['2020-02-25':]
 
+        confirmed = confirmed.diff()
+
         bokeh.plotting.output_file(
             os.path.join('figures', 'relative_plot.html'))
 
@@ -200,7 +202,6 @@ class CovidPlot(object):
             title='COVID-19 cases per country' + self.data_disclaimer,
             x_axis_type='datetime',
             x_axis_label='Date',
-            y_axis_type='log',
             y_axis_label='Confirmed cases per million inhabitants',
         )
 
@@ -260,9 +261,7 @@ class CovidPlot(object):
                 slice(None), slice(None), slice(None))
         ]
 
-        confirmed.columns = (
-            confirmed.columns.droplevel(3).droplevel(2).droplevel(1)
-        )
+        confirmed.columns = confirmed.columns.droplevel([3, 2, 1])
 
         concat_list = []
         for label in list(set(confirmed.columns)):
@@ -270,34 +269,32 @@ class CovidPlot(object):
             if type(series) == pd.DataFrame:
                 series = series.sum(axis=1)
                 series.name = label
-            series = series[series >= 1000]
-            # series = series[0:35]
+            series = series[series >= 100]
             series = series.reset_index(drop=True)
             concat_list.append(series)
 
         transformed = pd.concat(concat_list, axis=1).sort_index(axis=1)
-
         reference = pd.DataFrame()
         reference['helper'] = np.arange(
             0, transformed.index.tolist()[-1], 1 / 24)
         reference.index = reference.helper
 
         reference['double every other day'] = (
-            1000 * (2 ** (1 / 2)) ** reference['helper']
+            100 * (2 ** (1 / 2)) ** reference['helper']
         )
         reference['double every third day'] = (
-            1000 * (2 ** (1 / 3)) ** reference['helper']
+            100 * (2 ** (1 / 3)) ** reference['helper']
         )
         reference['double every week'] = (
-            1000 * (2 ** (1 / 7)) ** reference['helper']
+            100 * (2 ** (1 / 7)) ** reference['helper']
         )
 
         reference['double every other week'] = (
-            1000 * (2 ** (1 / 14)) ** reference['helper']
+            100 * (2 ** (1 / 14)) ** reference['helper']
         )
 
         reference['double every month'] = (
-            1000 * (2 ** (1 / 30)) ** reference['helper']
+            100 * (2 ** (1 / 30)) ** reference['helper']
         )
 
         reference = reference.drop('helper', axis=1)
@@ -309,6 +306,12 @@ class CovidPlot(object):
         reference.loc[
             reference['double every third day'] > max_crop,
             'double every third day'] = float('nan')
+        reference.loc[
+            reference['double every week'] > max_crop,
+            'double every week'] = float('nan')
+        reference.loc[
+            reference['double every other week'] > max_crop,
+            'double every other week'] = float('nan')
 
         bokeh.plotting.output_file(
             os.path.join('figures', 'shifted.html'))
@@ -319,7 +322,7 @@ class CovidPlot(object):
         figure = bokeh.plotting.figure(
             title='COVID-19 cases per country' + self.data_disclaimer,
             y_axis_type='log',
-            x_axis_label='Days since more than 1000 cases',
+            x_axis_label='Days since more than 100 cases',
             y_axis_label='Accumulated positive cases'
         )
 
@@ -428,8 +431,7 @@ class CovidPlot(object):
                 slice(None), slice(None), slice(None))
         ]
 
-        confirmed.columns = (
-            confirmed.columns.droplevel(3).droplevel(2).droplevel(1))
+        confirmed.columns = confirmed.columns.droplevel([3, 2, 1])
 
         concat_list = []
         for label in list(set(confirmed.columns)):
@@ -463,7 +465,7 @@ class CovidPlot(object):
         xmin = confirmed.idx.iat[0]
         xmax = confirmed.idx.iat[-1]
 
-        ymin = 0.8
+        ymin = 1.0
         ymax = 1.6
 
         y_border = 2 ** (1 / 14)
@@ -541,7 +543,7 @@ class CovidPlot(object):
         self.not_so_simple_plot(countries)
         self.increase_plot(countries)
         self.totals_plot()
-        self.rate_plot()
+        self.rate_plot(['Austria'])
 
 
 def main():
