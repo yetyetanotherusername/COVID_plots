@@ -192,11 +192,15 @@ class CovidPlot(object):
 
         confirmed = confirmed.diff()
 
+        mean = confirmed.rolling(7, center=True, min_periods=3).mean()
+
         bokeh.plotting.output_file(
             os.path.join('figures', 'relative_plot.html'))
 
         confirmed['idx'] = confirmed.index.to_pydatetime()
+        mean['idx'] = confirmed['idx']
         source = bokeh.models.sources.ColumnDataSource(confirmed)
+        source2 = bokeh.models.sources.ColumnDataSource(mean)
 
         figure = bokeh.plotting.figure(
             title='COVID-19 cases per country' + self.data_disclaimer,
@@ -217,29 +221,40 @@ class CovidPlot(object):
                 source=source,
                 color=color,
                 legend_label=column,
-                alpha=0.6,
+                # alpha=0.6,
                 name=column
             )
 
-            figure.circle(
+            glyph2 = figure.line(
                 x='idx',
                 y=column,
-                source=source,
+                source=source2,
                 color=color,
-                size=5,
-                alpha=0.6,
                 legend_label=column,
+                # alpha=0.6,
+                line_dash=[3, 6],
                 name=column
             )
 
-            fstring = '{' + f'{column}' + '}'
+            # figure.circle(
+            #     x='idx',
+            #     y=column,
+            #     source=source,
+            #     color=color,
+            #     size=5,
+            #     alpha=0.6,
+            #     legend_label=column,
+            #     name=column
+            # )
+
+            fstring = f'{{{column}}}'
             dstring = '{%d-%m-%Y}'
             hover_tool = bokeh.models.HoverTool(
                 tooltips=[(f'{column}',
                            f'Date: @idx{dstring}, Confirmed: @{fstring}')],
                 formatters={'@idx': 'datetime'},
                 mode='vline',
-                renderers=[glyph],
+                renderers=[glyph, glyph2],
                 line_policy='nearest')
 
             figure.tools.append(hover_tool)
@@ -410,15 +425,18 @@ class CovidPlot(object):
         plot_df = pd.DataFrame()
 
         plot_df['confirmed'] = total_df.confirmed.diff()
+        plot_df['confirmed_mean'] = plot_df['confirmed'].rolling(7, center=True, min_periods=3).mean()
         plot_df['deaths'] = total_df.deaths.diff().clip(lower=0)
+        plot_df['deaths_mean'] = plot_df['deaths'].rolling(7, center=True, min_periods=3).mean()
         plot_df['recovered'] = total_df.recovered.diff().clip(lower=0)
+        plot_df['recovered_mean'] = plot_df['recovered'].rolling(7, center=True, min_periods=3).mean()
 
         c_string = self.countries_to_string(countries)
 
         pandas_bokeh.output_file(
             os.path.join('figures', 'rate.html'))
         curdoc().theme = Theme(json=jt)
-        plot_df.plot_bokeh.area(
+        plot_df.plot_bokeh.line(
             figsize=(1500, 750),
             title=f'{c_string} daily COVID-19 cases' + self.data_disclaimer,
             ylabel='Number of newly affected individuals per day',
