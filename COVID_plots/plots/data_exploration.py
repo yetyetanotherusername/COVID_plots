@@ -206,7 +206,7 @@ class CovidPlot(object):
             title='COVID-19 cases per country' + self.data_disclaimer,
             x_axis_type='datetime',
             x_axis_label='Date',
-            y_axis_label='Confirmed cases per million inhabitants',
+            y_axis_label='Positive tests per day per million inhabitants',
         )
 
         column_list = list(confirmed.columns)
@@ -221,6 +221,7 @@ class CovidPlot(object):
                 source=source,
                 color=color,
                 legend_label=column,
+                line_dash=[3, 6],
                 # alpha=0.6,
                 name=column
             )
@@ -232,7 +233,6 @@ class CovidPlot(object):
                 color=color,
                 legend_label=column,
                 # alpha=0.6,
-                line_dash=[3, 6],
                 name=column
             )
 
@@ -462,6 +462,7 @@ class CovidPlot(object):
 
         confirmed = pd.concat(
             concat_list, axis=1).sort_index().sort_index(axis=1)
+        confirmed = confirmed.diff().rolling(14).mean()
         confirmed = confirmed / confirmed.shift(1)
         confirmed = confirmed['2020-03-15':]
         confirmed['idx'] = confirmed.index
@@ -483,7 +484,7 @@ class CovidPlot(object):
         xmin = confirmed.idx.iat[0]
         xmax = confirmed.idx.iat[-1]
 
-        ymin = 1.0
+        ymin = 0.0
         ymax = 1.6
 
         y_border = 2 ** (1 / 14)
