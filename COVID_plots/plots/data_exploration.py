@@ -215,14 +215,14 @@ class CovidPlot(object):
         colors = itertools.cycle(palette1)
 
         for column, color in zip(column_list, colors):
-            glyph = figure.line(
+            glyph = figure.scatter(
                 x='idx',
                 y=column,
                 source=source,
                 color=color,
                 legend_label=column,
-                line_dash=[3, 6],
-                # alpha=0.6,
+                # line_dash=[3, 6],
+                alpha=0.5,
                 name=column
             )
 
@@ -559,9 +559,9 @@ class CovidPlot(object):
         ]
         # self.simple_plot(countries)
         self.relative_plot(countries)
-        self.not_so_simple_plot(countries)
-        self.increase_plot(countries)
-        self.totals_plot()
+        # self.not_so_simple_plot(countries)
+        # self.increase_plot(countries)
+        # self.totals_plot()
         self.rate_plot(['Austria'])
 
 
