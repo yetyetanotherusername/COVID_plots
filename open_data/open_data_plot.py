@@ -2,13 +2,14 @@ import bokeh
 from bokeh.io import curdoc
 from bokeh.themes import Theme
 from bokeh.palettes import Category20_20 as palette1
-from bokeh.models import DatetimeTickFormatter, LinearAxis, Range1d
+from bokeh.models import DatetimeTickFormatter, LinearAxis, Range1d, Title
 from bokeh.palettes import Colorblind8 as palette2
 from COVID_plots.themes.dark_minimal_adapted import json as jt
 import io
 import pandas as pd
 import pandas_bokeh
 import requests
+from scipy.stats import gmean
 
 from COVID_plots.plots.data_exploration import CovidPlot
 
@@ -91,12 +92,23 @@ class OpenDataPlot(object):
             ('Österreich', slice(None))
         ].doses_administered_cumulative.groupby('date').sum().to_frame()
 
-        vac_frame['doses_per_day'] = vac_frame.doses_administered_cumulative.diff()
+        vac_frame['doses_per_day'] = (
+            vac_frame.doses_administered_cumulative.diff()
+        )
 
-        plot_frame.index = pd.to_datetime(plot_frame.index, utc=True).normalize()
-        vac_frame.index = pd.to_datetime(vac_frame.index, utc=True).normalize()
+        plot_frame.index = pd.to_datetime(
+            plot_frame.index,
+            utc=True
+        ).normalize()
+        vac_frame.index = pd.to_datetime(
+            vac_frame.index,
+            utc=True
+        ).normalize()
 
-        plot_frame = pd.concat([plot_frame, vac_frame, self.historic_data], axis=1)
+        plot_frame = pd.concat(
+            [plot_frame, vac_frame, self.historic_data],
+            axis=1
+        )
         plot_frame.index.name = 'idx'
 
         plot_frame.pos_cases = plot_frame.pos_cases.fillna(
@@ -109,8 +121,28 @@ class OpenDataPlot(object):
             axis=1
         )
 
-        plot_frame['7d_mean'] = plot_frame.pos_cases.rolling(7, center=True).mean()
-        plot_frame['7d_mean_deaths'] = plot_frame.deaths.rolling(7, center=True).mean()
+        plot_frame['7d_mean'] = plot_frame.pos_cases.rolling(
+            7,
+            center=True
+        ).mean()
+        plot_frame['7d_mean_deaths'] = plot_frame.deaths.rolling(
+            7,
+            center=True
+        ).mean()
+
+        plot_frame['rel_change'] = (
+            plot_frame['7d_mean'] / plot_frame['7d_mean'].shift()
+        )
+
+        plot_frame['change_smoothed'] = plot_frame.rel_change.rolling(
+            7,
+            center=True
+        ).apply(gmean)
+
+        plot_frame.rel_change = (plot_frame.rel_change - 1) * 100
+        plot_frame.change_smoothed = (plot_frame.change_smoothed - 1) * 100
+
+        plot_frame['zero'] = 0.
 
         print(plot_frame)
 
@@ -119,12 +151,75 @@ class OpenDataPlot(object):
     def vac_vs_infection_plot(self):
         source = bokeh.models.sources.ColumnDataSource(self.plot_frame)
 
-        fig1 = bokeh.plotting.figure(
-            title='COVID-19 cases Austria vs vaccinations',
+        aspect = 10
+        low_alpha = 0.3
+
+        fig0 = bokeh.plotting.figure(
             x_axis_type='datetime',
-            y_axis_label='Positive tests per day',
-            aspect_ratio=7
+            y_axis_label='Relative\nchange-%',
+            aspect_ratio=aspect
         )
+
+        fig0.xaxis.visible = False
+        fig0.y_range = Range1d(-15, 20)
+
+        fig0.add_layout(
+            Title(
+                text='Cumulated growth'
+            ),
+            'above'
+        )
+
+        fig0.add_layout(
+            Title(
+                text='COVID-19 report Austria',
+                text_font_size='16pt'
+            ),
+            'above'
+        )
+
+        glyph1 = fig0.line(
+            x='idx',
+            y='rel_change',
+            source=source,
+            color='white',
+            # legend_label='pos_cases',
+            # line_dash=[3, 6],
+            alpha=low_alpha,
+            # name=column
+        )
+
+        glyph1 = fig0.line(
+            x='idx',
+            y='change_smoothed',
+            source=source,
+            color='white',
+            # legend_label='pos_cases',
+            # line_dash=[3, 6],
+            alpha=1,
+            # name=column
+        )
+
+        glyph1 = fig0.line(
+            x='idx',
+            y='zero',
+            source=source,
+            color='white',
+            # legend_label='pos_cases',
+            # line_dash=[3, 6],
+            alpha=1,
+            # name=column
+        )
+
+        fig1 = bokeh.plotting.figure(
+            title='Daily view',
+            x_axis_type='datetime',
+            y_axis_label='Positive cases\nper day',
+            aspect_ratio=aspect,
+            x_range=fig0.x_range,
+        )
+
+        fig1.y_range = Range1d(-750, self.plot_frame['7d_mean'].max())
 
         fig1.add_layout(
             LinearAxis(
@@ -133,7 +228,7 @@ class OpenDataPlot(object):
             'right'
         )
         fig1.extra_y_ranges = {
-            "y2": Range1d(-10, self.plot_frame.deaths.max())
+            "y2": Range1d(-10, self.plot_frame['7d_mean_deaths'].max())
         }
 
         fig1.xaxis.visible = False
@@ -145,7 +240,7 @@ class OpenDataPlot(object):
             color='orange',
             # legend_label='pos_cases',
             # line_dash=[3, 6],
-            alpha=0.3,
+            alpha=low_alpha,
             # name=column
         )
 
@@ -167,7 +262,7 @@ class OpenDataPlot(object):
             color='red',
             # legend_label='deaths',
             # line_dash=[3, 6],
-            alpha=0.3,
+            alpha=low_alpha,
             # name=column
             y_range_name='y2'
         )
@@ -186,8 +281,8 @@ class OpenDataPlot(object):
 
         fig2 = bokeh.plotting.figure(
             x_axis_type='datetime',
-            x_range=fig1.x_range,
-            aspect_ratio=7
+            x_range=fig0.x_range,
+            aspect_ratio=aspect
         )
 
         fig2.xaxis.visible = False
@@ -199,7 +294,7 @@ class OpenDataPlot(object):
             color='orange',
             # legend_label=column,
             # line_dash=[3, 6],
-            alpha=0.3,
+            alpha=low_alpha,
             # name=column
         )
 
@@ -216,8 +311,8 @@ class OpenDataPlot(object):
 
         fig3 = bokeh.plotting.figure(
             x_axis_type='datetime',
-            x_range=fig1.x_range,
-            aspect_ratio=7
+            x_range=fig0.x_range,
+            aspect_ratio=aspect
         )
 
         fig3.add_layout(LinearAxis(y_range_name="y2"), 'right')
@@ -248,8 +343,13 @@ class OpenDataPlot(object):
             # name=column
         )
 
-
-        plot = bokeh.layouts.gridplot([[fig1], [fig2], [fig3]], sizing_mode='scale_width')
+        plot = bokeh.layouts.gridplot(
+            [[fig0],
+             [fig1],
+             [fig2],
+             [fig3]],
+            sizing_mode='scale_width'
+        )
 
         bokeh.plotting.show(plot)
 

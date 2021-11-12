@@ -4,3 +4,4 @@ geopandas
 descartes
 bokeh
 pandas-bokeh
+scipy
