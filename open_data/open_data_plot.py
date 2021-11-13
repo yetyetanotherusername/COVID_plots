@@ -2,7 +2,7 @@ import bokeh
 from bokeh.io import curdoc
 from bokeh.themes import Theme
 from bokeh.palettes import Category20_20 as palette1
-from bokeh.models import DatetimeTickFormatter, LinearAxis, Range1d, Title
+from bokeh.models import BasicTickFormatter, LinearAxis, Range1d, Title
 from bokeh.palettes import Colorblind8 as palette2
 from COVID_plots.themes.dark_minimal_adapted import json as jt
 import io
@@ -86,14 +86,30 @@ class OpenDataPlot(object):
             'Todesfaelle'
         ].droplevel(0).diff()
 
+        plot_frame['tests'] = frame.loc[
+            ('Österreich', slice(None)),
+            'Testungen'
+        ].droplevel(0).diff().fillna(0)
+
+        plot_frame['hospitalizations'] = frame.loc[
+            ('Österreich', slice(None)),
+            'Hospitalisierung'
+        ].droplevel(0)
+
+        plot_frame['ICU'] = frame.loc[
+            ('Österreich', slice(None)),
+            'Intensivstation'
+        ].droplevel(0)
+
         vac_frame = self.vaccination_timeseries.set_index(
             ['state_name', 'date']
         ).sort_index().loc[
             ('Österreich', slice(None))
-        ].doses_administered_cumulative.groupby('date').sum().to_frame()
+        ].doses_administered_cumulative.groupby(
+            'date').sum().to_frame()
 
         vac_frame['doses_per_day'] = (
-            vac_frame.doses_administered_cumulative.diff()
+            vac_frame.doses_administered_cumulative.diff().fillna(0)
         )
 
         plot_frame.index = pd.to_datetime(
@@ -144,9 +160,31 @@ class OpenDataPlot(object):
 
         plot_frame['zero'] = 0.
 
-        print(plot_frame)
+        plot_frame['test_pos_percentage'] = (
+            plot_frame.pos_cases / plot_frame.tests * 100
+        ).rolling(7, center=True).median()
+
+        plot_frame.tests = plot_frame.tests / 10 ** 5
+
+        plot_frame.doses_per_day = plot_frame.doses_per_day / 10 ** 4
+        plot_frame.doses_administered_cumulative = (
+            plot_frame.doses_administered_cumulative / 10 ** 6
+        )
 
         self.plot_frame = plot_frame
+
+    def calc_axis_min_max(self, column_name):
+        edge_margin = 0.1
+
+        plot_frame = self.plot_frame
+        col_max = plot_frame[column_name].max()
+        col_min = plot_frame[column_name].min()
+        diff = col_max - col_min
+
+        ax_min = col_min - diff * edge_margin
+        ax_max = col_max + diff * edge_margin
+
+        return ax_min, ax_max
 
     def vac_vs_infection_plot(self):
         source = bokeh.models.sources.ColumnDataSource(self.plot_frame)
@@ -219,7 +257,8 @@ class OpenDataPlot(object):
             x_range=fig0.x_range,
         )
 
-        fig1.y_range = Range1d(-750, self.plot_frame['7d_mean'].max())
+        fig1_min, fig1_max = self.calc_axis_min_max('7d_mean')
+        fig1.y_range = Range1d(fig1_min, fig1_max)
 
         fig1.add_layout(
             LinearAxis(
@@ -227,8 +266,10 @@ class OpenDataPlot(object):
                 axis_label='Deaths per day'),
             'right'
         )
+
+        fig1_sec_min, fig1_sec_max = self.calc_axis_min_max('7d_mean_deaths')
         fig1.extra_y_ranges = {
-            "y2": Range1d(-10, self.plot_frame['7d_mean_deaths'].max())
+            "y2": Range1d(fig1_sec_min, fig1_sec_max)
         }
 
         fig1.xaxis.visible = False
@@ -280,19 +321,40 @@ class OpenDataPlot(object):
         )
 
         fig2 = bokeh.plotting.figure(
+            title='Testing',
             x_axis_type='datetime',
             x_range=fig0.x_range,
-            aspect_ratio=aspect
+            aspect_ratio=aspect,
+            y_axis_label='100k tests per day'
         )
-
+        fig2.yaxis.formatter = BasicTickFormatter(use_scientific=False)
         fig2.xaxis.visible = False
 
-        glyph = fig2.line(
+        fig2_min, fig2_max = self.calc_axis_min_max('tests')
+        fig2.y_range = Range1d(fig2_min, fig2_max)
+
+        fig2.add_layout(
+            LinearAxis(
+                y_range_name="y2",
+                axis_label='Positive tests %'),
+            'right'
+        )
+
+        fig2_sec_min, fig2_sec_max = self.calc_axis_min_max(
+            'test_pos_percentage'
+        )
+
+        fig2.extra_y_ranges = {
+            "y2": Range1d(fig2_sec_min, fig2_sec_max)
+        }
+
+        glyph = fig2.varea(
             x='idx',
-            y='pos_cases',
+            y1='zero',
+            y2='tests',
             source=source,
-            color='orange',
-            # legend_label=column,
+            # color='grey',
+            legend_label='Tests',
             # line_dash=[3, 6],
             alpha=low_alpha,
             # name=column
@@ -300,36 +362,53 @@ class OpenDataPlot(object):
 
         glyph = fig2.line(
             x='idx',
-            y='7d_mean',
+            y='test_pos_percentage',
             source=source,
-            color='orange',
-            # legend_label=column,
+            color='violet',
+            legend_label='Positive tests % (right)',
             # line_dash=[3, 6],
             alpha=1,
-            # name=column
+            # name=column,
+            y_range_name='y2'
         )
 
         fig3 = bokeh.plotting.figure(
+            title='Vaccinations',
             x_axis_type='datetime',
             x_range=fig0.x_range,
-            aspect_ratio=aspect
+            aspect_ratio=aspect,
+            y_axis_label='Tenthousand doses\nper day'
         )
 
-        fig3.add_layout(LinearAxis(y_range_name="y2"), 'right')
-        fig3.extra_y_ranges = {
-            "y2": Range1d(0, self.plot_frame.doses_per_day.max())
-        }
+        fig3_min, fig3_max = self.calc_axis_min_max('doses_per_day')
+        fig3.y_range = Range1d(fig3_min, fig3_max)
 
-        glyph = fig3.line(
+        fig3.add_layout(
+            LinearAxis(
+                y_range_name="y2",
+                axis_label='Million doses\nadministered'
+            ), 'right')
+
+        fig3_sec_min, fig3_sec_max = self.calc_axis_min_max(
+            'doses_administered_cumulative'
+        )
+
+        fig3.extra_y_ranges = {
+            "y2": Range1d(fig3_sec_min, fig3_sec_max)
+        }
+        fig3.yaxis.formatter = BasicTickFormatter(use_scientific=False)
+        fig3.xaxis.visible = False
+
+        glyph = fig3.varea(
             x='idx',
-            y='doses_per_day',
+            y1='zero',
+            y2='doses_per_day',
             source=source,
-            color='green',
-            # legend_label=column,
+            # color='gray',
+            legend_label='Doses per day',
             # line_dash=[3, 6],
-            alpha=1,
+            alpha=low_alpha,
             # name=column
-            y_range_name='y2'
         )
 
         glyph = fig3.line(
@@ -337,17 +416,65 @@ class OpenDataPlot(object):
             y='doses_administered_cumulative',
             source=source,
             color='green',
-            # legend_label=column,
+            legend_label='Accumulated doses (right)',
             # line_dash=[3, 6],
             alpha=1,
             # name=column
+            y_range_name='y2'
+        )
+
+        fig4 = bokeh.plotting.figure(
+            title='Hospitalization',
+            x_axis_type='datetime',
+            x_range=fig0.x_range,
+            aspect_ratio=aspect,
+            y_axis_label='Patients hospitalized'
+        )
+
+        fig4_min, fig4_max = self.calc_axis_min_max('hospitalizations')
+        fig4.y_range = Range1d(fig4_min, fig4_max)
+
+        fig4.add_layout(
+            LinearAxis(
+                y_range_name="y2",
+                axis_label='Patients in ICU'), 'right')
+
+        fig4_sec_min, fig4_sec_max = self.calc_axis_min_max('ICU')
+
+        fig4.extra_y_ranges = {
+            "y2": Range1d(fig4_sec_min, fig4_sec_max)
+        }
+        fig4.yaxis.formatter = BasicTickFormatter(use_scientific=False)
+
+        glyph = fig4.line(
+            x='idx',
+            y='hospitalizations',
+            source=source,
+            color='brown',
+            legend_label='Hospitalizations',
+            # line_dash=[3, 6],
+            alpha=1,
+            # name=column
+        )
+
+        glyph = fig4.line(
+            x='idx',
+            y='ICU',
+            source=source,
+            color='aquamarine',
+            legend_label='ICU patients (right)',
+            # line_dash=[3, 6],
+            alpha=1,
+            # name=column
+            y_range_name='y2'
         )
 
         plot = bokeh.layouts.gridplot(
             [[fig0],
              [fig1],
              [fig2],
-             [fig3]],
+             [fig3],
+             [fig4]],
             sizing_mode='scale_width'
         )
 
