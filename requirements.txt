@@ -5,3 +5,4 @@ descartes
 bokeh
 pandas-bokeh
 scipy
+requests
