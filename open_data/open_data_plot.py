@@ -203,14 +203,16 @@ class OpenDataPlot(object):
 
         fig0.add_layout(
             Title(
-                text='Cumulated growth'
+                text='Relative growth'
             ),
             'above'
         )
 
+        date = self.plot_frame.index[-1].date().strftime('%d-%m-%Y')
+
         fig0.add_layout(
             Title(
-                text='COVID-19 report Austria',
+                text=(f'COVID-19 report Austria (last update {date})'),
                 text_font_size='16pt'
             ),
             'above'
