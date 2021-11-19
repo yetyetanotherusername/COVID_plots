@@ -1,13 +1,10 @@
 import bokeh
 from bokeh.io import curdoc
 from bokeh.themes import Theme
-from bokeh.palettes import Category20_20 as palette1
 from bokeh.models import BasicTickFormatter, LinearAxis, Range1d, Title
-from bokeh.palettes import Colorblind8 as palette2
 from COVID_plots.themes.dark_minimal_adapted import json as jt
 import io
 import pandas as pd
-import pandas_bokeh
 import requests
 from scipy.stats import gmean
 
@@ -102,11 +99,17 @@ class OpenDataPlot(object):
         ].droplevel(0)
 
         vac_frame = self.vaccination_timeseries.set_index(
-            ['state_name', 'date']
+            ['state_name', 'date', 'dose_number']
         ).sort_index().loc[
             ('Österreich', slice(None))
         ].doses_administered_cumulative.groupby(
-            'date').sum().to_frame()
+            ['date', 'dose_number']).sum().to_frame().unstack(
+            'dose_number'
+        )
+        vac_frame.columns = vac_frame.columns.droplevel(0)
+        vac_frame.columns = ['first_doses', 'second_doses', 'third_doses']
+
+        vac_frame['doses_administered_cumulative'] = vac_frame.sum(axis=1)
 
         vac_frame['doses_per_day'] = (
             vac_frame.doses_administered_cumulative.diff().fillna(0)
@@ -169,6 +172,15 @@ class OpenDataPlot(object):
         plot_frame.doses_per_day = plot_frame.doses_per_day / 10 ** 4
         plot_frame.doses_administered_cumulative = (
             plot_frame.doses_administered_cumulative / 10 ** 6
+        )
+        plot_frame.first_doses = (
+            plot_frame.first_doses / 10 ** 6
+        )
+        plot_frame.second_doses = (
+            plot_frame.second_doses / 10 ** 6
+        )
+        plot_frame.third_doses = (
+            plot_frame.third_doses / 10 ** 6
         )
 
         self.plot_frame = plot_frame
@@ -419,6 +431,42 @@ class OpenDataPlot(object):
             source=source,
             color='green',
             legend_label='Accumulated doses (right)',
+            # line_dash=[3, 6],
+            alpha=1,
+            # name=column
+            y_range_name='y2'
+        )
+
+        glyph = fig3.line(
+            x='idx',
+            y='first_doses',
+            source=source,
+            color='red',
+            legend_label='First doses (right)',
+            # line_dash=[3, 6],
+            alpha=1,
+            # name=column
+            y_range_name='y2'
+        )
+
+        glyph = fig3.line(
+            x='idx',
+            y='second_doses',
+            source=source,
+            color='orange',
+            legend_label='Second doses (right)',
+            # line_dash=[3, 6],
+            alpha=1,
+            # name=column
+            y_range_name='y2'
+        )
+
+        glyph = fig3.line(
+            x='idx',
+            y='third_doses',
+            source=source,
+            color='cyan',
+            legend_label='Third doses (right)',
             # line_dash=[3, 6],
             alpha=1,
             # name=column
