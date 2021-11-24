@@ -5,6 +5,7 @@ from bokeh.models import BasicTickFormatter, LinearAxis, Range1d, Title
 from COVID_plots.themes.dark_minimal_adapted import json as jt
 import io
 import pandas as pd
+import numpy as np
 import requests
 from scipy.stats import gmean
 
@@ -165,7 +166,10 @@ class OpenDataPlot(object):
 
         plot_frame['test_pos_percentage'] = (
             plot_frame.pos_cases / plot_frame.tests * 100
-        ).rolling(7, center=True).median()
+        ).replace([np.inf, -np.inf], np.nan)
+
+        plot_frame['test_pos_percentage_smoothed'] = (
+            plot_frame.test_pos_percentage.rolling(7, center=True).mean())
 
         plot_frame.tests = plot_frame.tests / 10 ** 5
 
@@ -379,7 +383,18 @@ class OpenDataPlot(object):
             y='test_pos_percentage',
             source=source,
             color='violet',
-            legend_label='Positive tests % (right)',
+            # line_dash=[3, 6],
+            alpha=low_alpha,
+            # name=column,
+            y_range_name='y2'
+        )
+
+        glyph = fig2.line(
+            x='idx',
+            y='test_pos_percentage_smoothed',
+            source=source,
+            color='violet',
+            legend_label='Positive tests % smoothed (right)',
             # line_dash=[3, 6],
             alpha=1,
             # name=column,
