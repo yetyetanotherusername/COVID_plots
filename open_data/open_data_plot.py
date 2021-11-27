@@ -359,7 +359,7 @@ class OpenDataPlot(object):
         )
 
         fig2_sec_min, fig2_sec_max = self.calc_axis_min_max(
-            'test_pos_percentage'
+            'test_pos_percentage_smoothed'
         )
 
         fig2.extra_y_ranges = {

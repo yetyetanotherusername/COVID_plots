@@ -1,7 +1,7 @@
 pandas
 numpy
-geopandas
-descartes
+#geopandas
+#descartes
 bokeh
 pandas-bokeh
 scipy
