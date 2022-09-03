@@ -83,6 +83,8 @@ class OpenDataPlot(object):
             ('Österreich', slice(None)),
             'Todesfaelle'
         ].droplevel(0).diff()
+        plot_frame.loc['2022-04-21':'2022-04-23', 'deaths'] = plot_frame.loc['2022-04-20T09:30:00+02:00', 'deaths']
+        plot_frame.at['2022-05-23T09:30:00+02:00', 'deaths'] = plot_frame.at['2022-05-22T09:30:00+02:00', 'deaths']
 
         plot_frame['tests'] = frame.loc[
             ('Österreich', slice(None)),
