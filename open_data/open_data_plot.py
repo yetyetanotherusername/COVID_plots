@@ -2,13 +2,12 @@ import io
 
 import bokeh
 import numpy as np
-import pandas as pd
+import polars as pl
 import requests
 from bokeh import plotting
 from bokeh.io import curdoc
 from bokeh.models import BasicTickFormatter, LinearAxis, Range1d, Title
 from bokeh.themes import Theme
-from COVID_plots.plots.data_exploration import CovidPlot
 from COVID_plots.themes.dark_minimal_adapted import json as jt
 from scipy.stats import gmean
 
@@ -37,7 +36,10 @@ class OpenDataPlot:
         return self.parse_csv(self.download_csv(url))
 
     def parse_csv(self, csv):
-        return pd.read_csv(csv, delimiter=";")
+        return pl.read_csv(
+            csv,
+            sep=";",
+        )
 
     def download_csv(self, url):
         req = requests.get(url).content
@@ -45,7 +47,12 @@ class OpenDataPlot:
 
     def prepare_data(self):
         frame = self.covid_numbers
-        frame.Time = pd.to_datetime(frame.Time, format="%d.%m.%Y %H:%M:%S")
+        # pd.to_datetime(frame.Time, format="%d.%m.%Y %H:%M:%S")
+        frame = frame.with_column(
+            pl.col("Time").str.strptime(pl.Datetime, fmt="%d.%m.%Y %H:%M:%S")
+        )
+        print(frame)
+        print(hurtz)
         frame = frame.set_index(["Bundesland", "Time"]).sort_index()
 
         plot_frame = (

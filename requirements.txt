@@ -1,8 +1,7 @@
-pandas
 numpy
 #geopandas
 #descartes
 bokeh
-pandas-bokeh
 scipy
 requests
+polars
