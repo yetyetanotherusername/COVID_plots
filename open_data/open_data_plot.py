@@ -8,10 +8,9 @@ from bokeh import plotting
 from bokeh.io import curdoc
 from bokeh.models import BasicTickFormatter, LinearAxis, Range1d, Title
 from bokeh.themes import Theme
-from scipy.stats import gmean
-
 from COVID_plots.plots.data_exploration import CovidPlot
 from COVID_plots.themes.dark_minimal_adapted import json as jt
+from scipy.stats import gmean
 
 requests.packages.urllib3.util.ssl_.DEFAULT_CIPHERS = "ALL:@SECLEVEL=1"
 
@@ -26,12 +25,8 @@ class OpenDataPlot:
         base_url = "https://info.gesundheitsministerium.gv.at/data/"
         open_data_url = "https://covid19-dashboard.ages.at/data/"
 
-        self.vaccination_age_groups = self.url_to_df(
-            base_url + "COVID19_vaccination_doses_agegroups.csv"
-        )
-
         self.vaccination_timeseries = self.url_to_df(
-            base_url + "COVID19_vaccination_doses_timeline.csv"
+            base_url + "COVID19_vaccination_doses_timeline_v202206.csv"
         )
 
         self.covid_numbers = self.url_to_df(open_data_url + "CovidFaelle_Timeline.csv")
@@ -101,7 +96,13 @@ class OpenDataPlot:
             .unstack("dose_number")
         )
         vac_frame.columns = vac_frame.columns.droplevel(0)
-        vac_frame.columns = ["first_doses", "second_doses", "third_doses"]
+        vac_frame.columns = [
+            "first_doses",
+            "second_doses",
+            "third_doses",
+            "fourth_doses",
+            "five+_doses",
+        ]
 
         vac_frame["doses_administered_cumulative"] = vac_frame.sum(axis=1)
 
