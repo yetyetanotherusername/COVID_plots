@@ -1,4 +1,5 @@
 import io
+from datetime import datetime
 
 import bokeh
 import numpy as np
@@ -36,10 +37,7 @@ class OpenDataPlot:
         return self.parse_csv(self.download_csv(url))
 
     def parse_csv(self, csv):
-        return pl.read_csv(
-            csv,
-            sep=";",
-        )
+        return pl.read_csv(csv, sep=";")
 
     def download_csv(self, url):
         req = requests.get(url).content
@@ -47,27 +45,51 @@ class OpenDataPlot:
 
     def prepare_data(self):
         frame = self.covid_numbers
-        # pd.to_datetime(frame.Time, format="%d.%m.%Y %H:%M:%S")
         frame = frame.with_column(
             pl.col("Time").str.strptime(pl.Datetime, fmt="%d.%m.%Y %H:%M:%S")
         )
-        print(frame)
-        print(hurtz)
-        frame = frame.set_index(["Bundesland", "Time"]).sort_index()
+        frame = frame.sort(["Bundesland", "Time"])
 
-        plot_frame = (
-            frame.loc[("Österreich", slice(None)), "AnzahlFaelle"]
-            .to_frame("pos_cases")
-            .droplevel(0)
+        plot_frame = frame.filter(pl.col("Bundesland") == "Österreich")
+        plot_frame = plot_frame.rename(
+            {
+                "AnzahlTotTaeglich": "deaths",
+            }
+        )
+        plot_frame = plot_frame.select(["Time", "deaths"])
+
+        plot_frame = plot_frame.with_columns(
+            [
+                pl.when(
+                    pl.col("Time").is_between(
+                        datetime(2022, 4, 21), datetime(2022, 4, 23)
+                    )
+                )
+                .then(
+                    pl.lit(
+                        plot_frame.filter(
+                            pl.col("Time") == datetime(2022, 4, 20)
+                        ).select("deaths")[0, 0]
+                    )
+                )
+                .otherwise(pl.col("deaths"))
+                .alias("deaths"),
+                pl.when(pl.col("Time") == datetime(2022, 5, 23))
+                .then(
+                    pl.lit(
+                        plot_frame.filter(
+                            pl.col("Time") == datetime(2022, 5, 22)
+                        ).select("deaths")[0, 0]
+                    )
+                )
+                .otherwise(pl.col("deaths"))
+                .alias("deaths"),
+            ]
         )
 
-        plot_frame["deaths"] = frame.loc[
-            ("Österreich", slice(None)), "AnzahlTotTaeglich"
-        ].droplevel(0)
+        print(plot_frame)
+        print(hurtz)
 
-        plot_frame.loc["2022-04-21":"2022-04-23", "deaths"] = plot_frame.loc[
-            "2022-04-20 00:00:00", "deaths"
-        ]
         plot_frame.at["2022-05-23 00:00:00", "deaths"] = plot_frame.at[
             "2022-05-22 00:00:00", "deaths"
         ]
