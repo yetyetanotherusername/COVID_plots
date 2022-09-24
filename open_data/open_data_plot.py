@@ -174,20 +174,17 @@ class OpenDataPlot:
         )
 
         plot_frame = plot_frame.with_column(
-            (pl.col("7d_mean") / pl.col("7d_mean").shift())
+            ((pl.col("7d_mean") / pl.col("7d_mean").shift() - 1) * 100)
             .alias("rel_change")
             .fill_null(0)
+        ).with_column(
+            pl.col("rel_change")
+            .rolling_apply(gmean, 7, center=True)
+            .alias("change_smoothed")
         )
 
         print(plot_frame)
         print(hurtz)
-
-        plot_frame["change_smoothed"] = plot_frame.rel_change.rolling(
-            7, center=True
-        ).apply(gmean)
-
-        plot_frame.rel_change = (plot_frame.rel_change - 1) * 100
-        plot_frame.change_smoothed = (plot_frame.change_smoothed - 1) * 100
 
         plot_frame["zero"] = 0.0
 
