@@ -47,103 +47,121 @@ class OpenDataPlot:
         frame = self.covid_numbers
         frame = frame.with_column(
             pl.col("Time").str.strptime(pl.Datetime, fmt="%d.%m.%Y %H:%M:%S")
-        )
-        frame = frame.sort(["Bundesland", "Time"])
+        ).sort(["Bundesland", "Time"])
 
-        plot_frame = frame.filter(pl.col("Bundesland") == "Österreich")
-        plot_frame = plot_frame.rename(
-            {
-                "AnzahlTotTaeglich": "deaths",
-            }
+        plot_frame = (
+            frame.filter(pl.col("Bundesland") == "Österreich")
+            .select(["Time", "AnzahlTotTaeglich"])
+            .rename(
+                {
+                    "AnzahlTotTaeglich": "deaths",
+                }
+            )
         )
-        plot_frame = plot_frame.select(["Time", "deaths"])
 
         plot_frame = plot_frame.with_columns(
             [
                 pl.when(
                     pl.col("Time").is_between(
-                        datetime(2022, 4, 21), datetime(2022, 4, 23)
+                        datetime(2022, 4, 21),
+                        datetime(2022, 4, 23),
+                        include_bounds=True,
                     )
                 )
                 .then(
-                    pl.lit(
-                        plot_frame.filter(
-                            pl.col("Time") == datetime(2022, 4, 20)
-                        ).select("deaths")[0, 0]
-                    )
+                    plot_frame.filter(
+                        pl.col("Time") == datetime(2022, 4, 20)
+                    ).get_column("deaths")
                 )
                 .otherwise(pl.col("deaths"))
                 .alias("deaths"),
                 pl.when(pl.col("Time") == datetime(2022, 5, 23))
                 .then(
-                    pl.lit(
-                        plot_frame.filter(
-                            pl.col("Time") == datetime(2022, 5, 22)
-                        ).select("deaths")[0, 0]
-                    )
+                    plot_frame.filter(
+                        pl.col("Time") == datetime(2022, 5, 22)
+                    ).get_column("deaths")
                 )
                 .otherwise(pl.col("deaths"))
                 .alias("deaths"),
             ]
         )
 
-        print(plot_frame)
-        print(hurtz)
-
-        plot_frame.at["2022-05-23 00:00:00", "deaths"] = plot_frame.at[
-            "2022-05-22 00:00:00", "deaths"
-        ]
-
         hframe = self.hospitalizations
-        hframe.Meldedatum = pd.to_datetime(
-            hframe.Meldedatum, format="%d.%m.%Y %H:%M:%S"
+        hframe = hframe.with_column(
+            pl.col("Meldedatum").str.strptime(pl.Datetime, fmt="%d.%m.%Y %H:%M:%S")
+        ).sort(["Bundesland", "Meldedatum"])
+
+        tests = (
+            hframe.filter(pl.col("Bundesland") == "Österreich")
+            .select(
+                [
+                    "Meldedatum",
+                    "TestGesamt",
+                    "NormalBettenBelCovid19",
+                    "IntensivBettenBelCovid19",
+                ]
+            )
+            .rename(
+                {
+                    "Meldedatum": "Time",
+                    "TestGesamt": "tests",
+                    "NormalBettenBelCovid19": "hospitalizations",
+                    "IntensivBettenBelCovid19": "ICU",
+                }
+            )
         )
-        hframe = hframe.set_index(["Bundesland", "Meldedatum"]).sort_index()
 
-        plot_frame["tests"] = (
-            hframe.loc[("Österreich", slice(None)), "TestGesamt"]
-            .droplevel(0)
-            .diff()
-            .fillna(0)
+        plot_frame = plot_frame.join(
+            other=tests, left_on="Time", right_on="Time", how="outer"
+        ).with_columns(
+            [
+                pl.col("tests").fill_null(pl.lit(0)).diff(),
+                pl.col("hospitalizations").fill_null(pl.lit(0)),
+                pl.col("ICU").fill_null(pl.lit(0)),
+            ]
         )
-
-        plot_frame["hospitalizations"] = hframe.loc[
-            ("Österreich", slice(None)), "NormalBettenBelCovid19"
-        ].droplevel(0)
-
-        plot_frame["ICU"] = hframe.loc[
-            ("Österreich", slice(None)), "IntensivBettenBelCovid19"
-        ].droplevel(0)
 
         vac_frame = (
-            self.vaccination_timeseries.set_index(["state_name", "date", "dose_number"])
-            .sort_index()
-            .loc[("Österreich", slice(None))]
-            .doses_administered_cumulative.groupby(["date", "dose_number"])
-            .sum()
-            .to_frame()
-            .unstack("dose_number")
+            self.vaccination_timeseries.with_columns(
+                pl.col("date")
+                .str.strptime(pl.Datetime, fmt="%Y-%m-%dT%H:%M:%S%z")
+                .dt.truncate("1d")
+            )
+            .filter(pl.col("state_name") == "Österreich")
+            .sort(["date", "dose_number"])
+            .drop(["state_name", "state_id"])
+            .pivot(
+                values="doses_administered_cumulative",
+                index="date",
+                columns="dose_number",
+            )
         )
-        vac_frame.columns = vac_frame.columns.droplevel(0)
-        vac_frame.columns = [
-            "first_doses",
-            "second_doses",
-            "third_doses",
-            "fourth_doses",
-            "five+_doses",
-        ]
 
-        vac_frame["doses_administered_cumulative"] = vac_frame.sum(axis=1)
+        vac_frame = vac_frame.with_column(
+            vac_frame.drop("date").sum(axis=1).alias("doses_administered_cumulative")
+        ).rename(
+            {
+                "1": "first_doses",
+                "2": "second_doses",
+                "3": "third_doses",
+                "4": "fourth_doses",
+                "5+": "five+_doses",
+            }
+        )
 
-        vac_frame[
-            "doses_per_day"
-        ] = vac_frame.doses_administered_cumulative.diff().fillna(0)
+        vac_frame = vac_frame.with_column(
+            pl.col("doses_administered_cumulative")
+            .diff()
+            .alias("doses_per_day")
+            .fill_null(0)
+        )
 
-        plot_frame.index = pd.to_datetime(plot_frame.index, utc=True).normalize()
-        vac_frame.index = pd.to_datetime(vac_frame.index, utc=True).normalize()
+        plot_frame = plot_frame.join(
+            vac_frame, left_on="Time", right_on="date", how="outer"
+        ).rename({"Time": "idx"})
 
-        plot_frame = pd.concat([plot_frame, vac_frame], axis=1)
-        plot_frame.index.name = "idx"
+        print(plot_frame)
+        print(hurtz)
 
         plot_frame["7d_mean"] = plot_frame.pos_cases.rolling(7, center=True).mean()
         plot_frame["7d_mean_deaths"] = plot_frame.deaths.rolling(7, center=True).mean()
