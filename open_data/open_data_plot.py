@@ -51,12 +51,8 @@ class OpenDataPlot:
 
         plot_frame = (
             frame.filter(pl.col("Bundesland") == "Österreich")
-            .select(["Time", "AnzahlTotTaeglich"])
-            .rename(
-                {
-                    "AnzahlTotTaeglich": "deaths",
-                }
-            )
+            .select(["Time", "AnzahlFaelle", "AnzahlTotTaeglich"])
+            .rename({"AnzahlTotTaeglich": "deaths", "AnzahlFaelle": "pos_cases"})
         )
 
         plot_frame = plot_frame.with_columns(
@@ -160,13 +156,31 @@ class OpenDataPlot:
             vac_frame, left_on="Time", right_on="date", how="outer"
         ).rename({"Time": "idx"})
 
+        idx = plot_frame.select(pl.col("idx"))
+
+        plot_frame = (
+            plot_frame.drop("idx").fill_null(0).with_column(idx.get_column("idx"))
+        )
+
+        plot_frame = plot_frame.with_columns(
+            [
+                pl.col("pos_cases")
+                .rolling_mean("7d", center=True, by="idx", closed="both")
+                .alias("7d_mean"),
+                pl.col("deaths")
+                .rolling_mean("7d", center=True, by="idx", closed="both")
+                .alias("7d_mean_deaths"),
+            ]
+        )
+
+        plot_frame = plot_frame.with_column(
+            (pl.col("7d_mean") / pl.col("7d_mean").shift())
+            .alias("rel_change")
+            .fill_null(0)
+        )
+
         print(plot_frame)
         print(hurtz)
-
-        plot_frame["7d_mean"] = plot_frame.pos_cases.rolling(7, center=True).mean()
-        plot_frame["7d_mean_deaths"] = plot_frame.deaths.rolling(7, center=True).mean()
-
-        plot_frame["rel_change"] = plot_frame["7d_mean"] / plot_frame["7d_mean"].shift()
 
         plot_frame["change_smoothed"] = plot_frame.rel_change.rolling(
             7, center=True
