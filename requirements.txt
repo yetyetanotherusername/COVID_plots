@@ -5,3 +5,5 @@ bokeh
 scipy
 requests
 polars
+pandas
+pyarrow

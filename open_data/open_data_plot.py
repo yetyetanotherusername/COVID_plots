@@ -2,7 +2,6 @@ import io
 from datetime import datetime
 
 import bokeh
-import numpy as np
 import polars as pl
 import requests
 from bokeh import plotting
@@ -111,9 +110,9 @@ class OpenDataPlot:
             other=tests, left_on="Time", right_on="Time", how="outer"
         ).with_columns(
             [
-                pl.col("tests").fill_null(pl.lit(0)).diff(),
-                pl.col("hospitalizations").fill_null(pl.lit(0)),
-                pl.col("ICU").fill_null(pl.lit(0)),
+                pl.col("tests").fill_null(0).diff(),
+                pl.col("hospitalizations").fill_null(0),
+                pl.col("ICU").fill_null(0),
             ]
         )
 
@@ -156,10 +155,9 @@ class OpenDataPlot:
             vac_frame, left_on="Time", right_on="date", how="outer"
         ).rename({"Time": "idx"})
 
-        idx = plot_frame.select(pl.col("idx"))
-
-        plot_frame = (
-            plot_frame.drop("idx").fill_null(0).with_column(idx.get_column("idx"))
+        plot_frame = pl.concat(
+            [plot_frame.select(pl.col("idx")), plot_frame.drop("idx").fill_null(0)],
+            how="horizontal",
         )
 
         plot_frame = plot_frame.with_columns(
@@ -174,7 +172,7 @@ class OpenDataPlot:
         )
 
         plot_frame = plot_frame.with_column(
-            ((pl.col("7d_mean") / pl.col("7d_mean").shift() - 1) * 100)
+            (pl.col("7d_mean") / pl.col("7d_mean").shift())
             .alias("rel_change")
             .fill_null(0)
         ).with_column(
@@ -183,30 +181,44 @@ class OpenDataPlot:
             .alias("change_smoothed")
         )
 
-        print(plot_frame)
-        print(hurtz)
-
-        plot_frame["zero"] = 0.0
-
-        plot_frame["test_pos_percentage"] = (
-            plot_frame.pos_cases / plot_frame.tests * 100
-        ).replace([np.inf, -np.inf], np.nan)
-
-        plot_frame[
-            "test_pos_percentage_smoothed"
-        ] = plot_frame.test_pos_percentage.rolling(7, center=True).mean()
-
-        plot_frame.tests = plot_frame.tests / 10**5
-
-        plot_frame.doses_per_day = plot_frame.doses_per_day / 10**4
-        plot_frame.doses_administered_cumulative = (
-            plot_frame.doses_administered_cumulative / 10**6
+        plot_frame = plot_frame.with_columns(
+            [
+                (pl.col("rel_change") - 1) * 100,
+                (pl.col("change_smoothed") - 1) * 100,
+                pl.lit(0.0).alias("zero"),
+                (pl.col("pos_cases") / pl.col("tests") * 100).alias(
+                    "test_pos_percentage"
+                ),
+            ]
         )
-        plot_frame.first_doses = plot_frame.first_doses / 10**6
-        plot_frame.second_doses = plot_frame.second_doses / 10**6
-        plot_frame.third_doses = plot_frame.third_doses / 10**6
 
-        self.plot_frame = plot_frame
+        plot_frame = plot_frame.with_column(
+            pl.when(pl.col("test_pos_percentage").is_infinite())
+            .then(pl.lit(float("nan")))
+            .otherwise(pl.col("test_pos_percentage"))
+            .keep_name()
+        )
+
+        plot_frame = plot_frame.with_columns(
+            [
+                pl.col("test_pos_percentage")
+                .rolling_mean("7d", center=True, by="idx", closed="both")
+                .alias("test_pos_percentage_smoothed"),
+                pl.col("tests") / 10**5,
+                pl.col("doses_per_day") / 10**4,
+                pl.col("doses_administered_cumulative") / 10**6,
+                pl.col("doses_per_day") / 10**5,
+                pl.col("first_doses") / 10**6,
+                pl.col("second_doses") / 10**6,
+                pl.col("third_doses") / 10**6,
+                pl.col("fourth_doses") / 10**6,
+                pl.col("five+_doses") / 10**6,
+            ]
+        )
+
+        self.plot_frame = plot_frame.to_pandas().set_index("idx")
+
+        print(self.plot_frame)
 
     def calc_axis_min_max(self, column_name):
         edge_margin = 0.1
