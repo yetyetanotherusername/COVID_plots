@@ -162,12 +162,8 @@ class OpenDataPlot:
 
         plot_frame = plot_frame.with_columns(
             [
-                pl.col("pos_cases")
-                .rolling_mean("7d", center=True, by="idx", closed="both")
-                .alias("7d_mean"),
-                pl.col("deaths")
-                .rolling_mean("7d", center=True, by="idx", closed="both")
-                .alias("7d_mean_deaths"),
+                pl.col("pos_cases").rolling_mean(7, center=True).alias("7d_mean"),
+                pl.col("deaths").rolling_mean(7, center=True).alias("7d_mean_deaths"),
             ]
         )
 
@@ -202,7 +198,7 @@ class OpenDataPlot:
         plot_frame = plot_frame.with_columns(
             [
                 pl.col("test_pos_percentage")
-                .rolling_mean("7d", center=True, by="idx", closed="both")
+                .rolling_mean(7, center=True)
                 .alias("test_pos_percentage_smoothed"),
                 pl.col("tests") / 10**5,
                 pl.col("doses_per_day") / 10**4,
