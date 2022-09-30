@@ -129,6 +129,7 @@ class OpenDataPlot:
                 values="doses_administered_cumulative",
                 index="date",
                 columns="dose_number",
+                aggregate_fn="sum",
             )
         )
 
@@ -195,7 +196,7 @@ class OpenDataPlot:
                 pl.col("test_pos_percentage")
                 .rolling_mean(7, center=True)
                 .alias("test_pos_percentage_smoothed"),
-                pl.col("tests") / 10**5,
+                pl.col("tests") / 10**6,
                 pl.col("doses_per_day") / 10**4,
                 pl.col("doses_administered_cumulative") / 10**6,
                 pl.col("doses_per_day") / 10**5,
@@ -353,7 +354,7 @@ class OpenDataPlot:
             x_axis_type="datetime",
             x_range=fig0.x_range,
             aspect_ratio=aspect,
-            y_axis_label="100k tests per day",
+            y_axis_label="Million tests per day",
         )
         fig2.yaxis.formatter = BasicTickFormatter(use_scientific=False)
         fig2.xaxis.visible = False
@@ -484,6 +485,30 @@ class OpenDataPlot:
             source=source,
             color="cyan",
             legend_label="Third doses (right)",
+            # line_dash=[3, 6],
+            alpha=1,
+            # name=column
+            y_range_name="y2",
+        )
+
+        glyph = fig3.line(
+            x="idx",
+            y="fourth_doses",
+            source=source,
+            color="white",
+            legend_label="Fourth doses (right)",
+            # line_dash=[3, 6],
+            alpha=1,
+            # name=column
+            y_range_name="y2",
+        )
+
+        glyph = fig3.line(
+            x="idx",
+            y="five+_doses",
+            source=source,
+            color="orange",
+            legend_label="Fifth or higher doses (right)",
             # line_dash=[3, 6],
             alpha=1,
             # name=column
