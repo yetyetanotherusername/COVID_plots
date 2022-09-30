@@ -43,15 +43,15 @@ class OpenDataPlot:
         return io.StringIO(req.decode("utf-8"))
 
     def prepare_data(self):
-        frame = self.covid_numbers
-        frame = frame.with_column(
-            pl.col("Time").str.strptime(pl.Datetime, fmt="%d.%m.%Y %H:%M:%S")
-        ).sort(["Bundesland", "Time"])
-
+        frame = self.covid_numbers.lazy()
         plot_frame = (
             frame.filter(pl.col("Bundesland") == "Österreich")
+            .with_column(
+                pl.col("Time").str.strptime(pl.Datetime, fmt="%d.%m.%Y %H:%M:%S")
+            )
             .select(["Time", "AnzahlFaelle", "AnzahlTotTaeglich"])
             .rename({"AnzahlTotTaeglich": "deaths", "AnzahlFaelle": "pos_cases"})
+            .sort("Time")
         )
 
         plot_frame = plot_frame.with_columns(
@@ -64,30 +64,29 @@ class OpenDataPlot:
                     )
                 )
                 .then(
-                    plot_frame.filter(
-                        pl.col("Time") == datetime(2022, 4, 20)
-                    ).get_column("deaths")
+                    plot_frame.filter(pl.col("Time") == datetime(2022, 4, 20))
+                    .collect()
+                    .get_column("deaths")
                 )
                 .otherwise(pl.col("deaths"))
                 .alias("deaths"),
                 pl.when(pl.col("Time") == datetime(2022, 5, 23))
                 .then(
-                    plot_frame.filter(
-                        pl.col("Time") == datetime(2022, 5, 22)
-                    ).get_column("deaths")
+                    plot_frame.filter(pl.col("Time") == datetime(2022, 5, 22))
+                    .collect()
+                    .get_column("deaths")
                 )
                 .otherwise(pl.col("deaths"))
                 .alias("deaths"),
             ]
         )
 
-        hframe = self.hospitalizations
-        hframe = hframe.with_column(
-            pl.col("Meldedatum").str.strptime(pl.Datetime, fmt="%d.%m.%Y %H:%M:%S")
-        ).sort(["Bundesland", "Meldedatum"])
-
         tests = (
-            hframe.filter(pl.col("Bundesland") == "Österreich")
+            self.hospitalizations.lazy()
+            .filter(pl.col("Bundesland") == "Österreich")
+            .with_column(
+                pl.col("Meldedatum").str.strptime(pl.Datetime, fmt="%d.%m.%Y %H:%M:%S")
+            )
             .select(
                 [
                     "Meldedatum",
@@ -104,6 +103,7 @@ class OpenDataPlot:
                     "IntensivBettenBelCovid19": "ICU",
                 }
             )
+            .sort("Time")
         )
 
         plot_frame = plot_frame.join(
@@ -117,60 +117,65 @@ class OpenDataPlot:
         )
 
         vac_frame = (
-            self.vaccination_timeseries.with_columns(
+            self.vaccination_timeseries.lazy()
+            .filter(pl.col("state_name") == "Österreich")
+            .with_columns(
                 pl.col("date")
                 .str.strptime(pl.Datetime, fmt="%Y-%m-%dT%H:%M:%S%z")
                 .dt.truncate("1d")
             )
-            .filter(pl.col("state_name") == "Österreich")
             .sort(["date", "dose_number"])
             .drop(["state_name", "state_id"])
+            .collect()
             .pivot(
                 values="doses_administered_cumulative",
                 index="date",
                 columns="dose_number",
                 aggregate_fn="sum",
             )
+            .lazy()
         )
 
-        vac_frame = vac_frame.with_column(
-            vac_frame.drop("date").sum(axis=1).alias("doses_administered_cumulative")
-        ).rename(
-            {
-                "1": "first_doses",
-                "2": "second_doses",
-                "3": "third_doses",
-                "4": "fourth_doses",
-                "5+": "five+_doses",
-            }
+        vac_frame = (
+            vac_frame.with_column(
+                vac_frame.drop("date")
+                .collect()
+                .sum(axis=1)
+                .alias("doses_administered_cumulative")
+            )
+            .rename(
+                {
+                    "1": "first_doses",
+                    "2": "second_doses",
+                    "3": "third_doses",
+                    "4": "fourth_doses",
+                    "5+": "five+_doses",
+                }
+            )
+            .with_column(
+                pl.col("doses_administered_cumulative").diff().alias("doses_per_day")
+            )
         )
 
-        vac_frame = vac_frame.with_column(
-            pl.col("doses_administered_cumulative").diff().alias("doses_per_day")
-        )
-
-        plot_frame = plot_frame.join(
-            vac_frame, left_on="Time", right_on="date", how="outer"
-        ).rename({"Time": "idx"})
-
-        plot_frame = pl.concat(
-            [plot_frame.select(pl.col("idx")), plot_frame.drop("idx")],
-            how="horizontal",
-        )
-
-        plot_frame = plot_frame.with_columns(
-            [
-                pl.col("pos_cases").rolling_mean(7, center=True).alias("7d_mean"),
-                pl.col("deaths").rolling_mean(7, center=True).alias("7d_mean_deaths"),
-            ]
-        )
-
-        plot_frame = plot_frame.with_column(
-            (pl.col("7d_mean") / pl.col("7d_mean").shift()).alias("rel_change")
-        ).with_column(
-            pl.col("rel_change")
-            .rolling_apply(gmean, 7, center=True)
-            .alias("change_smoothed")
+        plot_frame = (
+            plot_frame.join(vac_frame, left_on="Time", right_on="date", how="outer")
+            .rename({"Time": "idx"})
+            .with_columns(
+                [
+                    pl.col("pos_cases").rolling_mean(7, center=True).alias("7d_mean"),
+                    pl.col("deaths")
+                    .rolling_mean(7, center=True)
+                    .alias("7d_mean_deaths"),
+                ]
+            )
+            .with_column(
+                (pl.col("7d_mean") / pl.col("7d_mean").shift()).alias("rel_change")
+            )
+            .with_column(
+                pl.col("rel_change")
+                .rolling_apply(gmean, 7, center=True)
+                .alias("change_smoothed")
+            )
         )
 
         plot_frame = plot_frame.with_columns(
@@ -208,7 +213,7 @@ class OpenDataPlot:
             ]
         )
 
-        self.plot_frame = plot_frame.to_pandas().set_index("idx")
+        self.plot_frame = plot_frame.collect().to_pandas().set_index("idx")
 
     def calc_axis_min_max(self, column_name):
         edge_margin = 0.1

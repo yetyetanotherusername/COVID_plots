@@ -1,6 +1,4 @@
 numpy
-#geopandas
-#descartes
 bokeh
 scipy
 requests
