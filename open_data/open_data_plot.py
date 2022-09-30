@@ -110,9 +110,9 @@ class OpenDataPlot:
             other=tests, left_on="Time", right_on="Time", how="outer"
         ).with_columns(
             [
-                pl.col("tests").fill_null(0).diff(),
-                pl.col("hospitalizations").fill_null(0),
-                pl.col("ICU").fill_null(0),
+                pl.col("tests").diff(),
+                pl.col("hospitalizations"),
+                pl.col("ICU"),
             ]
         )
 
@@ -145,10 +145,7 @@ class OpenDataPlot:
         )
 
         vac_frame = vac_frame.with_column(
-            pl.col("doses_administered_cumulative")
-            .diff()
-            .alias("doses_per_day")
-            .fill_null(0)
+            pl.col("doses_administered_cumulative").diff().alias("doses_per_day")
         )
 
         plot_frame = plot_frame.join(
@@ -156,7 +153,7 @@ class OpenDataPlot:
         ).rename({"Time": "idx"})
 
         plot_frame = pl.concat(
-            [plot_frame.select(pl.col("idx")), plot_frame.drop("idx").fill_null(0)],
+            [plot_frame.select(pl.col("idx")), plot_frame.drop("idx")],
             how="horizontal",
         )
 
@@ -168,9 +165,7 @@ class OpenDataPlot:
         )
 
         plot_frame = plot_frame.with_column(
-            (pl.col("7d_mean") / pl.col("7d_mean").shift())
-            .alias("rel_change")
-            .fill_null(0)
+            (pl.col("7d_mean") / pl.col("7d_mean").shift()).alias("rel_change")
         ).with_column(
             pl.col("rel_change")
             .rolling_apply(gmean, 7, center=True)
@@ -213,8 +208,6 @@ class OpenDataPlot:
         )
 
         self.plot_frame = plot_frame.to_pandas().set_index("idx")
-
-        print(self.plot_frame)
 
     def calc_axis_min_max(self, column_name):
         edge_margin = 0.1
