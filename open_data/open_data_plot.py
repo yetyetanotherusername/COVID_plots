@@ -21,16 +21,14 @@ class OpenDataPlot:
         self.load_open_data()
 
     def load_open_data(self):
-        base_url = "https://info.gesundheitsministerium.gv.at/data/"
+        gv = "https://info.gesundheitsministerium.gv.at/data/"
         open_data_url = "https://covid19-dashboard.ages.at/data/"
 
-        self.vaccination_timeseries = self.url_to_df(
-            base_url + "COVID19_vaccination_doses_timeline_v202206.csv"
-        )
-
         self.covid_numbers = self.url_to_df(open_data_url + "CovidFaelle_Timeline.csv")
-
         self.hospitalizations = self.url_to_df(open_data_url + "Hospitalisierung.csv")
+        self.vaccination_timeseries = self.url_to_df(
+            gv + "COVID19_vaccination_doses_timeline_v202206.csv"
+        )
 
     def url_to_df(self, url):
         return self.parse_csv(self.download_csv(url))
