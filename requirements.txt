@@ -1,5 +1,5 @@
 numpy
-bokeh
+plotly
 scipy
 requests
 polars
