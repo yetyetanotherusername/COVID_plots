@@ -243,7 +243,7 @@ class OpenDataPlot:
             cols=1,
         )
         fig.add_hline(y=0, row=1, col=1, line=dict(width=1), opacity=0.7)
-        fig.update_layout(yaxis1=dict(range=[-22, 22]))
+        fig.update_layout(yaxis1=dict(range=[-16, 16]))
 
         fig.add_traces(
             [
