@@ -170,6 +170,14 @@ class OpenDataPlot:
             )
         )
 
+        plot_frame = plot_frame.with_column(
+            pl.when(pl.col("tests") < 1)
+            .then(None)
+            .otherwise(pl.col("tests"))
+            .interpolate()
+            .keep_name()
+        )
+
         plot_frame = plot_frame.with_columns(
             [
                 (pl.col("rel_change") - 1) * 100,
@@ -190,7 +198,7 @@ class OpenDataPlot:
 
         plot_frame = plot_frame.with_column(
             pl.col("test_pos_percentage")
-            .rolling_mean(7, center=True, min_periods=5)
+            .rolling_mean(7, center=True)
             .alias("test_pos_percentage_smoothed")
         )
 
