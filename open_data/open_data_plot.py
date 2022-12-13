@@ -112,9 +112,7 @@ class OpenDataPlot:
             self.vaccination_timeseries.lazy()
             .filter(pl.col("state_name") == "Österreich")
             .with_columns(
-                pl.col("date")
-                .str.strptime(pl.Datetime, fmt="%Y-%m-%dT%H:%M:%S%z")
-                .dt.truncate("1d")
+                pl.col("date").str.strptime(pl.Datetime, fmt="%+").dt.truncate("1d")
             )
             .sort(["date", "dose_number"])
             .drop(["state_name", "state_id"])
