@@ -21,7 +21,7 @@ class OpenDataPlot:
         self.covid_numbers = self.url_to_df(open_data_url + "CovidFaelle_Timeline.csv")
         self.hospitalizations = self.url_to_df(open_data_url + "Hospitalisierung.csv")
         self.vaccination_timeseries = self.url_to_df(
-            gv + "COVID19_vaccination_doses_timeline_v202206.csv"
+            gv + "COVID19_vaccination_timeline_v202210.csv"
         )
 
     def url_to_df(self, url):
@@ -114,13 +114,13 @@ class OpenDataPlot:
             .with_columns(
                 pl.col("date").str.strptime(pl.Datetime, fmt="%+").dt.truncate("1d")
             )
-            .sort(["date", "dose_number"])
+            .sort(["date", "vaccination"])
             .drop(["state_name", "state_id"])
             .collect()
             .pivot(
-                values="doses_administered_cumulative",
+                values="vaccinations_administered_cumulative",
                 index="date",
-                columns="dose_number",
+                columns="vaccination",
                 aggregate_fn="sum",
             )
             .lazy()
@@ -131,19 +131,20 @@ class OpenDataPlot:
                 vac_frame.drop("date")
                 .collect()
                 .sum(axis=1)
-                .alias("doses_administered_cumulative")
+                .alias("vaccinations_administered_cumulative")
             )
             .rename(
                 {
                     "1": "first_doses",
                     "2": "second_doses",
                     "3": "third_doses",
-                    "4": "fourth_doses",
-                    "5+": "five+_doses",
+                    "4+": "four_or_more_doses",
                 }
             )
             .with_column(
-                pl.col("doses_administered_cumulative").diff().alias("doses_per_day")
+                pl.col("vaccinations_administered_cumulative")
+                .diff()
+                .alias("doses_per_day")
             )
         )
 
@@ -344,9 +345,9 @@ class OpenDataPlot:
                 ),
                 go.Scatter(
                     x=self.plot_frame.select("idx").to_series(),
-                    y=self.plot_frame.select("fourth_doses").to_series(),
+                    y=self.plot_frame.select("four_or_more_doses").to_series(),
                     line=dict(width=1, color="#9467bd"),
-                    name="Fourth doses administered",
+                    name="Fourth or more doses administered",
                 ),
             ],
             secondary_ys=[False, True, True, True, True, True],
