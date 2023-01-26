@@ -38,7 +38,7 @@ class OpenDataPlot:
         frame = self.covid_numbers.lazy()
         plot_frame = (
             frame.filter(pl.col("Bundesland") == "Österreich")
-            .with_column(
+            .with_columns(
                 pl.col("Time").str.strptime(pl.Datetime, fmt="%d.%m.%Y %H:%M:%S")
             )
             .select(["Time", "AnzahlFaelle", "AnzahlTotTaeglich"])
@@ -76,7 +76,7 @@ class OpenDataPlot:
         tests = (
             self.hospitalizations.lazy()
             .filter(pl.col("Bundesland") == "Österreich")
-            .with_column(
+            .with_columns(
                 pl.col("Meldedatum").str.strptime(pl.Datetime, fmt="%d.%m.%Y %H:%M:%S")
             )
             .select(
@@ -112,7 +112,10 @@ class OpenDataPlot:
             self.vaccination_timeseries.lazy()
             .filter(pl.col("state_name") == "Österreich")
             .with_columns(
-                pl.col("date").str.strptime(pl.Datetime, fmt="%+").dt.truncate("1d")
+                pl.col("date")
+                .str.replace("[+|-][0-9]{2}:[0-9]{2}", "")
+                .str.strptime(pl.Datetime, fmt="%Y-%m-%dT%H:%M:%S")
+                .dt.round('1d')
             )
             .sort(["date", "vaccination"])
             .drop(["state_name", "state_id"])
@@ -127,7 +130,7 @@ class OpenDataPlot:
         )
 
         vac_frame = (
-            vac_frame.with_column(
+            vac_frame.with_columns(
                 vac_frame.drop("date")
                 .collect()
                 .sum(axis=1)
@@ -141,7 +144,7 @@ class OpenDataPlot:
                     "4+": "four_or_more_doses",
                 }
             )
-            .with_column(
+            .with_columns(
                 pl.col("vaccinations_administered_cumulative")
                 .diff()
                 .alias("doses_per_day")
@@ -159,17 +162,17 @@ class OpenDataPlot:
                     .alias("7d_mean_deaths"),
                 ]
             )
-            .with_column(
+            .with_columns(
                 (pl.col("7d_mean") / pl.col("7d_mean").shift()).alias("rel_change")
             )
-            .with_column(
+            .with_columns(
                 pl.col("rel_change")
                 .rolling_apply(gmean, 7, center=True)
                 .alias("change_smoothed")
             )
         )
 
-        plot_frame = plot_frame.with_column(
+        plot_frame = plot_frame.with_columns(
             pl.when(pl.col("tests") < 1)
             .then(None)
             .otherwise(pl.col("tests"))
@@ -188,14 +191,14 @@ class OpenDataPlot:
             ]
         )
 
-        plot_frame = plot_frame.with_column(
+        plot_frame = plot_frame.with_columns(
             pl.when(pl.col("test_pos_percentage").is_infinite())
             .then(None)
             .otherwise(pl.col("test_pos_percentage"))
             .keep_name()
         )
 
-        plot_frame = plot_frame.with_column(
+        plot_frame = plot_frame.with_columns(
             pl.col("test_pos_percentage")
             .rolling_mean(7, center=True)
             .alias("test_pos_percentage_smoothed")
