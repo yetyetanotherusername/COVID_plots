@@ -50,9 +50,7 @@ class OpenDataPlot:
             [
                 pl.when(
                     pl.col("Time").is_between(
-                        datetime(2022, 4, 21),
-                        datetime(2022, 4, 23),
-                        include_bounds=True,
+                        datetime(2022, 4, 21), datetime(2022, 4, 23), closed="both"
                     )
                 )
                 .then(
@@ -115,7 +113,7 @@ class OpenDataPlot:
                 pl.col("date")
                 .str.replace("[+|-][0-9]{2}:[0-9]{2}", "")
                 .str.strptime(pl.Datetime, fmt="%Y-%m-%dT%H:%M:%S")
-                .dt.round('1d')
+                .dt.round("1d")
             )
             .sort(["date", "vaccination"])
             .drop(["state_name", "state_id"])
