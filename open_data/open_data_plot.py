@@ -161,12 +161,22 @@ class OpenDataPlot:
                 ]
             )
             .with_columns(
-                (pl.col("7d_mean") / pl.col("7d_mean").shift()).alias("rel_change")
+                [
+                    (pl.col("7d_mean") / pl.col("7d_mean").shift()).alias("rel_change"),
+                    (pl.col("7d_mean_deaths") / pl.col("7d_mean_deaths").shift()).alias(
+                        "rel_change_deaths"
+                    ),
+                ]
             )
             .with_columns(
-                pl.col("rel_change")
-                .rolling_apply(gmean, 7, center=True)
-                .alias("change_smoothed")
+                [
+                    pl.col("rel_change")
+                    .rolling_apply(gmean, 7, center=True)
+                    .alias("change_smoothed"),
+                    pl.col("rel_change_deaths")
+                    .rolling_apply(gmean, 7, center=True)
+                    .alias("change_deaths_smoothed"),
+                ]
             )
         )
 
@@ -181,7 +191,9 @@ class OpenDataPlot:
         plot_frame = plot_frame.with_columns(
             [
                 (pl.col("rel_change") - 1) * 100,
+                (pl.col("rel_change_deaths") - 1) * 100,
                 (pl.col("change_smoothed") - 1) * 100,
+                (pl.col("change_deaths_smoothed") - 1) * 100,
                 pl.lit(0.0).alias("zero"),
                 (pl.col("pos_cases") / pl.col("tests") * 100).alias(
                     "test_pos_percentage"
@@ -242,9 +254,22 @@ class OpenDataPlot:
                 ),
                 go.Scatter(
                     x=self.plot_frame.select("idx").to_series(),
+                    y=self.plot_frame.select("rel_change_deaths").to_series(),
+                    opacity=low_opacity,
+                    line=dict(width=1, color="teal"),
+                    name="Relative change of deaths",
+                ),
+                go.Scatter(
+                    x=self.plot_frame.select("idx").to_series(),
                     y=self.plot_frame.select("change_smoothed").to_series(),
                     line=dict(width=1, color="white"),
                     name="Relative change smoothed",
+                ),
+                go.Scatter(
+                    x=self.plot_frame.select("idx").to_series(),
+                    y=self.plot_frame.select("change_deaths_smoothed").to_series(),
+                    line=dict(width=1, color="teal"),
+                    name="Relative change of deaths smoothed",
                 ),
             ],
             rows=1,
