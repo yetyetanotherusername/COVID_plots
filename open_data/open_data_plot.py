@@ -122,7 +122,7 @@ class OpenDataPlot:
                 values="vaccinations_administered_cumulative",
                 index="date",
                 columns="vaccination",
-                aggregate_fn="sum",
+                aggregate_function="sum",
             )
             .lazy()
         )
