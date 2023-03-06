@@ -46,31 +46,6 @@ class OpenDataPlot:
             .sort("Time")
         )
 
-        plot_frame = plot_frame.with_columns(
-            [
-                pl.when(
-                    pl.col("Time").is_between(
-                        datetime(2022, 4, 21), datetime(2022, 4, 23), closed="both"
-                    )
-                )
-                .then(
-                    plot_frame.filter(pl.col("Time") == datetime(2022, 4, 20))
-                    .collect()
-                    .get_column("deaths")
-                )
-                .otherwise(pl.col("deaths"))
-                .alias("deaths"),
-                pl.when(pl.col("Time") == datetime(2022, 5, 23))
-                .then(
-                    plot_frame.filter(pl.col("Time") == datetime(2022, 5, 22))
-                    .collect()
-                    .get_column("deaths")
-                )
-                .otherwise(pl.col("deaths"))
-                .alias("deaths"),
-            ]
-        )
-
         tests = (
             self.hospitalizations.lazy()
             .filter(pl.col("Bundesland") == "Österreich")
