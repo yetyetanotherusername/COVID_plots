@@ -28,7 +28,7 @@ class OpenDataPlot:
         return self.parse_csv(self.download_csv(url))
 
     def parse_csv(self, csv):
-        return pl.read_csv(csv, sep=";")
+        return pl.read_csv(csv, separator=";")
 
     def download_csv(self, url):
         req = requests.get(url).content
