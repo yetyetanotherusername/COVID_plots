@@ -39,7 +39,7 @@ class OpenDataPlot:
         plot_frame = (
             frame.filter(pl.col("Bundesland") == "Österreich")
             .with_columns(
-                pl.col("Time").str.strptime(pl.Datetime, fmt="%d.%m.%Y %H:%M:%S")
+                pl.col("Time").str.strptime(pl.Datetime, format="%d.%m.%Y %H:%M:%S")
             )
             .select(["Time", "AnzahlFaelle", "AnzahlTotTaeglich"])
             .rename({"AnzahlTotTaeglich": "deaths", "AnzahlFaelle": "pos_cases"})
@@ -50,7 +50,9 @@ class OpenDataPlot:
             self.hospitalizations.lazy()
             .filter(pl.col("Bundesland") == "Österreich")
             .with_columns(
-                pl.col("Meldedatum").str.strptime(pl.Datetime, fmt="%d.%m.%Y %H:%M:%S")
+                pl.col("Meldedatum").str.strptime(
+                    pl.Datetime, format="%d.%m.%Y %H:%M:%S"
+                )
             )
             .select(
                 [
@@ -87,7 +89,7 @@ class OpenDataPlot:
             .with_columns(
                 pl.col("date")
                 .str.replace("[+|-][0-9]{2}:[0-9]{2}", "")
-                .str.strptime(pl.Datetime, fmt="%Y-%m-%dT%H:%M:%S")
+                .str.strptime(pl.Datetime, format="%Y-%m-%dT%H:%M:%S")
                 .dt.round("1d")
             )
             .sort(["date", "vaccination"])
