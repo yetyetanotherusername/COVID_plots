@@ -1,5 +1,4 @@
 import io
-from datetime import datetime
 
 import plotly.graph_objects as go
 import polars as pl
