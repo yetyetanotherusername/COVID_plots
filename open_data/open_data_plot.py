@@ -14,7 +14,7 @@ class OpenDataPlot:
         self.load_open_data()
 
     def load_open_data(self):
-        gv = "https://info.gesundheitsministerium.gv.at/data/"
+        gv = "https://opendata.sozialversicherung.at/eimpfpass/"
         open_data_url = "https://covid19-dashboard.ages.at/data/"
 
         self.covid_numbers = self.url_to_df(open_data_url + "CovidFaelle_Timeline.csv")
